@@ -4,6 +4,7 @@
 **Created**: [DATE]  
 **Status**: Draft  
 **Input**: User description: "$ARGUMENTS"
+**Constitution Version**: 1.0.0 (reference when completing Constitution Check)
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -28,6 +29,8 @@
 
 **Independent Test**: [Describe how this can be tested independently - e.g., "Can be fully tested by [specific action] and delivers [specific value]"]
 
+**Rollback Plan**: [Document how to disable/revert this story without impacting others]
+
 **Acceptance Scenarios**:
 
 1. **Given** [initial state], **When** [action], **Then** [expected outcome]
@@ -43,6 +46,8 @@
 
 **Independent Test**: [Describe how this can be tested independently]
 
+**Rollback Plan**: [Document how to disable/revert this story without impacting others]
+
 **Acceptance Scenarios**:
 
 1. **Given** [initial state], **When** [action], **Then** [expected outcome]
@@ -56,6 +61,8 @@
 **Why this priority**: [Explain the value and why it has this priority level]
 
 **Independent Test**: [Describe how this can be tested independently]
+
+**Rollback Plan**: [Document how to disable/revert this story without impacting others]
 
 **Acceptance Scenarios**:
 
@@ -100,6 +107,15 @@
 - **[Entity 1]**: [What it represents, key attributes without implementation]
 - **[Entity 2]**: [What it represents, relationships to other entities]
 
+## Contract Surfaces *(mandatory when exposing an interface)*
+
+- **Interface Name**: [CLI command or HTTP endpoint]  
+  - **Request Schema**: [Reference contracts/<file>.json or describe fields inline]  
+  - **Response Schema**: [Same as above, include error envelope]  
+  - **Versioning**: [Semantic version or compatibility note, plus migration strategy]  
+  - **Quickstart Step**: [Link to quickstart.md section demonstrating this interface]  
+  - **Required Tests**: [Contract test file path and expected failing assertion before implementation]
+
 ## Success Criteria *(mandatory)*
 
 <!--
@@ -113,3 +129,4 @@
 - **SC-002**: [Measurable metric, e.g., "System handles 1000 concurrent users without degradation"]
 - **SC-003**: [User satisfaction metric, e.g., "90% of users successfully complete primary task on first attempt"]
 - **SC-004**: [Business metric, e.g., "Reduce support tickets related to [X] by 50%"]
+- **SC-005**: [Operational metric required by Principle V - e.g., "Emit structured logs for every CLI invocation with latency <200ms"]

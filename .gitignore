@@ -1,0 +1,28 @@
+# Ignore local tooling artifacts
+.devcontainer/local.env
+.devcontainer/*.swp
+.codex/*
+!.codex/prompts/
+
+# Node / frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Backend / Rust
+target/
+**/*.rs.bk
+
+# IDE files
+.DS_Store
+.idea/
+.vscode/
+
+# Devcontainer caches
+.cache/
+media/
+
+# Logs / coverage
+logs/
+coverage/
+

@@ -1,0 +1,253 @@
+openapi: 3.1.1
+info:
+  title: Galarie Media Platform API
+  version: 1.0.0
+  description: REST API for tag-based media search, thumbnail access, streaming, and index management.
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development server
+tags:
+  - name: media
+    description: Search and media retrieval
+  - name: thumbnails
+    description: Thumbnail access
+  - name: stream
+    description: Media streaming
+  - name: index
+    description: Tag index maintenance
+paths:
+  /media:
+    get:
+      tags: [media]
+      summary: Search media by tags and attributes
+      parameters:
+        - in: query
+          name: tags
+          schema:
+            type: string
+            description: Comma-separated simple tags
+          description: Required tags (AND semantics)
+        - in: query
+          name: attributes[{key}]
+          schema:
+            type: string
+            description: Comma-separated values for a key
+          description: Key/value attribute filters (AND across keys, OR within values)
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: pageSize
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 60
+      responses:
+        '200':
+          description: Paginated media list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaSearchResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /media/{id}/thumbnail:
+    get:
+      tags: [thumbnails]
+      summary: Fetch thumbnail for a media item
+      parameters:
+        - $ref: '#/components/parameters/MediaId'
+        - in: query
+          name: size
+          schema:
+            type: string
+            enum: [small, medium, large]
+      responses:
+        '200':
+          description: Thumbnail image
+          content:
+            image/png: {}
+            image/jpeg: {}
+        '304':
+          description: Not modified (ETag caching)
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /media/{id}/stream:
+    get:
+      tags: [stream]
+      summary: Stream the original media file
+      parameters:
+        - $ref: '#/components/parameters/MediaId'
+        - in: query
+          name: disposition
+          schema:
+            type: string
+            enum: [inline, attachment]
+      responses:
+        '200':
+          description: Full media payload
+          content:
+            application/octet-stream: {}
+        '206':
+          description: Partial content (Range support)
+          content:
+            application/octet-stream: {}
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /index/rebuild:
+    post:
+      tags: [index]
+      summary: Trigger tag index rebuild
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IndexRebuildRequest'
+      responses:
+        '202':
+          description: Rebuild accepted/queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatus'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  parameters:
+    MediaId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Media identifier
+  schemas:
+    MediaSearchResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MediaFile'
+        total:
+          type: integer
+        page:
+          type: integer
+        pageSize:
+          type: integer
+    MediaFile:
+      type: object
+      properties:
+        id:
+          type: string
+        relativePath:
+          type: string
+        mediaType:
+          type: string
+          enum: [image, gif, video, audio, pdf]
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+        attributes:
+          type: object
+          additionalProperties:
+            type: string
+        filesize:
+          type: integer
+        dimensions:
+          $ref: '#/components/schemas/Dimensions'
+        durationMs:
+          type: integer
+        thumbnailPath:
+          type: string
+        indexedAt:
+          type: string
+          format: date-time
+      required: [id, relativePath, mediaType, tags, attributes, filesize, thumbnailPath, indexedAt]
+    Tag:
+      type: object
+      properties:
+        rawToken:
+          type: string
+        type:
+          type: string
+          enum: [simple, kv]
+        name:
+          type: string
+        value:
+          type: string
+          nullable: true
+        normalized:
+          type: string
+      required: [rawToken, type, name, normalized]
+    Dimensions:
+      type: object
+      properties:
+        width:
+          type: integer
+        height:
+          type: integer
+      required: [width, height]
+    IndexRebuildRequest:
+      type: object
+      properties:
+        force:
+          type: boolean
+          default: false
+    JobStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [queued, running, complete, failed]
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+      required: [status]
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+          required: [code, message]
+  responses:
+    BadRequest:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

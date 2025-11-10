@@ -7,8 +7,9 @@ description: "Task list template for feature implementation"
 
 **Input**: Design documents from `/specs/[###-feature-name]/`
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
+**Constitution Version**: 1.0.0 (cite in release notes)
 
-**Tests**: The examples below include test tasks. Tests are OPTIONAL - only include them if explicitly requested in the feature specification.
+**Tests**: Contract, integration, and critical unit tests are mandatory per Principle IV. Capture them before any implementation task and ensure they fail prior to code changes.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
@@ -17,6 +18,8 @@ description: "Task list template for feature implementation"
 - **[P]**: Can run in parallel (different files, no dependencies)
 - **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
 - Include exact file paths in descriptions
+- Include rollback or feature-flag steps so each story can be disabled independently
+- Reference logging/metrics work to satisfy Principle V
 
 ## Path Conventions
 
@@ -155,6 +158,7 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] TXXX Performance optimization across all stories
 - [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
 - [ ] TXXX Security hardening
+- [ ] TXXX Observability validation: confirm logs/metrics dashboards per Principle V
 - [ ] TXXX Run quickstart.md validation
 
 ---

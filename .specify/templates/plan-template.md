@@ -2,6 +2,7 @@
 
 **Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
 **Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
+**Constitution Version**: 1.0.0 (update if constitution changes)
 
 **Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
 
@@ -31,7 +32,13 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+| Principle | Evidence to capture | Status (PASS/FAIL + link) |
+|-----------|--------------------|---------------------------|
+| Principle I - Independently Valuable Slices | List each user story with priority, acceptance test link, and rollback note. | |
+| Principle II - Research-Led Planning | Reference research.md sections cited in this plan plus unresolved questions. | |
+| Principle III - Contract-First Interfaces | Link to draft contracts/, quickstart.md steps, and schemas for every interface. | |
+| Principle IV - Test-Gated Implementation | Identify failing tests to be written before coding and how they prove behavior. | |
+| Principle V - Operational Transparency & Versioning | Document instrumentation/logging commitments plus semantic version impact. | |
 
 ## Project Structure
 
