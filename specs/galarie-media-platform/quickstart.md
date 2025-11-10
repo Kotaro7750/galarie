@@ -46,7 +46,26 @@ cp sample-media/* media/
 - PNG/GIF/MP4 assets are versioned in `sample-media/`, so no generation step is required.
 - Feel free to copy your own files into `media/`; git ignores everything except `README.md` and `.gitkeep`.
 
-## 5. Backend Setup (Rust example)
+## 5. Observability Stack (OTel Collector, Prometheus, Loki, Tempo, Grafana)
+
+Opening the devcontainer automatically starts a companion Docker Compose stack (defined in `.devcontainer/observability/`) that provides end-to-end telemetry tooling:
+
+- OTel Collector – accepts OTLP gRPC/HTTP on `localhost:4317` / `4318`
+- Prometheus – `http://localhost:9090`
+- Loki – `http://localhost:3100`
+- Tempo – `http://localhost:3200`
+- Grafana – `http://localhost:3300` (anonymous access enabled, datasources pre-provisioned)
+
+If you need to run the stack outside the devcontainer, reuse the same compose file manually:
+
+```bash
+docker compose -f .devcontainer/observability/docker-compose.yaml up -d
+docker compose -f .devcontainer/observability/docker-compose.yaml down
+```
+
+The backend already points to the collector via `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317` on the shared Compose network.
+
+## 6. Backend Setup (Rust example)
 
 ```bash
 cd backend
@@ -84,7 +103,7 @@ The API serves:
 - `GET /api/v1/media/{id}/stream`
 - `POST /api/v1/index/rebuild`
 
-## 6. Frontend Setup
+## 7. Frontend Setup
 
 ```bash
 cd frontend
@@ -109,7 +128,7 @@ Configure `.env`:
 VITE_API_BASE=http://localhost:8080/api/v1
 ```
 
-## 7. Index Rebuild & Verification
+## 8. Index Rebuild & Verification
 
 Trigger cache rebuild:
 
@@ -123,7 +142,7 @@ Check search endpoint:
 curl "http://localhost:8080/api/v1/media?tags=cat,sunset&attributes[rating]=5"
 ```
 
-## 8. UI Workflow Test
+## 9. UI Workflow Test
 
 1. Open the frontend (dev server or bundled build).  
 2. Perform tag search → thumbnails appear rapidly (<=1s).  
@@ -131,7 +150,7 @@ curl "http://localhost:8080/api/v1/media?tags=cat,sunset&attributes[rating]=5"
 4. Pick a video → use loop/A-B controls; state persists until reload.  
 5. Observe OpenTelemetry traces/logs (if collector container is running).
 
-## 9. OpenAPI Docs
+## 10. OpenAPI Docs
 
 To preview API docs (optional):
 
@@ -141,7 +160,7 @@ npx -y redoc-cli serve specs/galarie-media-platform/contracts/openapi.yaml
 
 Browse `http://localhost:8080` (default). Use `Ctrl+C` to stop.
 
-## 10. Troubleshooting
+## 11. Troubleshooting
 
 - Ensure media path is mounted read-only; backend logs warn if missing.  
 - Delete cache (`rm -rf $GALARIE_CACHE_DIR/index.json`) if tags change.  

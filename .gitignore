@@ -28,3 +28,6 @@ media/*
 # Logs / coverage
 logs/
 coverage/
+/.cargo/
+/.tmp/
+/target/

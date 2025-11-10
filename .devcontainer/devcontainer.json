@@ -1,15 +1,12 @@
 {
   "name": "Galarie Devcontainer",
-  "build": {
-    "dockerfile": "Dockerfile",
-    "args": {
-      "NODE_MAJOR": "24",
-      "NODE_FALLBACK": "22"
-    }
-  },
-  "remoteUser": "vscode",
+  "dockerComposeFile": [
+    "docker-compose.yml"
+  ],
+  "service": "devcontainer",
   "workspaceFolder": "/workspaces/galarie",
-  "forwardPorts": [8080, 5173, 4317],
+  "remoteUser": "vscode",
+  "forwardPorts": [8080, 5173, 4317, 3300, 9090, 3100, 3200],
   "postCreateCommand": "cargo --version && rustc --version && node --version && npm --version",
   "customizations": {
     "vscode": {
@@ -23,16 +20,5 @@
         "dbaeumer.vscode-eslint"
       ]
     }
-  },
-  "features": {
-    "ghcr.io/devcontainers/features/git:1": {}
-  },
-  "mounts": [
-    "source=${localWorkspaceFolder}/media,target=/workspace/media,type=bind,consistency=cached"
-  ],
-  "runArgs": [
-    "--env", "GALARIE_MEDIA_ROOT=/workspace/media",
-    "--env", "GALARIE_CACHE_DIR=/workspace/.cache",
-    "--env", "OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4317"
-  ]
+  }
 }

@@ -2,7 +2,8 @@ use std::{sync::Arc, time::Instant};
 
 use axum::{Json, Router, extract::State, response::IntoResponse, routing::get};
 use serde::Serialize;
-use tower_http::trace::TraceLayer;
+use tower_http::trace::{DefaultMakeSpan, TraceLayer};
+use tracing::Level;
 
 use crate::config::AppConfig;
 
@@ -27,7 +28,10 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/healthz", get(healthz))
         .with_state(state)
-        .layer(TraceLayer::new_for_http())
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(DefaultMakeSpan::new().level(Level::INFO)),
+        )
 }
 
 /// JSON payload returned by `/healthz`.
