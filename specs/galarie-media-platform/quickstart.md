@@ -35,7 +35,18 @@ export GALARIE_PORT=8080
 mkdir -p "$GALARIE_CACHE_DIR"
 ```
 
-## 4. Backend Setup (Rust example)
+## 4. Seed Sample Media
+
+Copy the bundled fixtures into your local `media/` mount:
+
+```bash
+cp sample-media/* media/
+```
+
+- PNG/GIF/MP4 assets are versioned in `sample-media/`, so no generation step is required.
+- Feel free to copy your own files into `media/`; git ignores everything except `README.md` and `.gitkeep`.
+
+## 5. Backend Setup (Rust example)
 
 ```bash
 cd backend
@@ -64,7 +75,7 @@ The API serves:
 - `GET /api/v1/media/{id}/stream`
 - `POST /api/v1/index/rebuild`
 
-## 5. Frontend Setup
+## 6. Frontend Setup
 
 ```bash
 cd frontend
@@ -81,7 +92,7 @@ Configure `.env`:
 VITE_API_BASE=http://localhost:8080/api/v1
 ```
 
-## 6. Index Rebuild & Verification
+## 7. Index Rebuild & Verification
 
 Trigger cache rebuild:
 
@@ -95,7 +106,7 @@ Check search endpoint:
 curl "http://localhost:8080/api/v1/media?tags=cat,sunset&attributes[rating]=5"
 ```
 
-## 7. UI Workflow Test
+## 8. UI Workflow Test
 
 1. Open the frontend (dev server or bundled build).  
 2. Perform tag search → thumbnails appear rapidly (<=1s).  
@@ -103,7 +114,7 @@ curl "http://localhost:8080/api/v1/media?tags=cat,sunset&attributes[rating]=5"
 4. Pick a video → use loop/A-B controls; state persists until reload.  
 5. Observe OpenTelemetry traces/logs (if collector container is running).
 
-## 8. OpenAPI Docs
+## 9. OpenAPI Docs
 
 To preview API docs (optional):
 
@@ -113,7 +124,7 @@ npx -y redoc-cli serve specs/galarie-media-platform/contracts/openapi.yaml
 
 Browse `http://localhost:8080` (default). Use `Ctrl+C` to stop.
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
 - Ensure media path is mounted read-only; backend logs warn if missing.  
 - Delete cache (`rm -rf $GALARIE_CACHE_DIR/index.json`) if tags change.  

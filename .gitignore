@@ -18,11 +18,12 @@ target/
 .idea/
 .vscode/
 
-# Devcontainer caches
+# Devcontainer caches + sample media
 .cache/
-media/
+media/*
+!media/.gitkeep
+!media/README.md
 
 # Logs / coverage
 logs/
 coverage/
-
