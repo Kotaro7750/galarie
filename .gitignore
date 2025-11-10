@@ -11,6 +11,7 @@ frontend/.vite/
 
 # Backend / Rust
 target/
+**/target/
 **/*.rs.bk
 
 # IDE files
