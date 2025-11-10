@@ -24,15 +24,15 @@ description: "Task list for Galarie media platform core feature"
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-- [ ] T001 Install devcontainer dependencies (Rust stable, Node 24 fallback, ffmpeg/gifsicle) via `.devcontainer` and verify `devcontainer up --workspace-folder .`.
-- [ ] T002 Create `media/` sample directory with fixture files + tags for local testing (document in `/specs/galarie-media-platform/quickstart.md`).
-- [ ] T003 [P] Configure shared `Makefile`/`justfile` in project root for backend/frontend commands with lint/test targets.
+- [x] T001 Install devcontainer dependencies (Rust stable, Node 24 fallback, ffmpeg/gifsicle) via `.devcontainer` and verify `devcontainer up --workspace-folder .`.
+- [x] T002 Create `media/` sample directory with fixture files + tags for local testing (document in `/specs/galarie-media-platform/quickstart.md`).
+- [x] T003 [P] Configure shared `Makefile`/`justfile` in project root for backend/frontend commands with lint/test targets.
 
 ---
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-- [ ] T010 Scaffold backend Rust workspace `backend/` with Axum app, configuration loader, and OTLP exporter wiring.
+- [x] T010 Scaffold backend Rust workspace `backend/` with Axum app, configuration loader, and OTLP exporter wiring.
 - [ ] T011 Implement filesystem watcher/indexer skeleton in `backend/src/indexer.rs` that walks `GALARIE_MEDIA_ROOT` and emits `MediaFile` structs (no cache persistence yet).
 - [ ] T012 Initialize JSON cache module `backend/src/cache/mod.rs` to persist/read `/workspace/.cache/index.json` with schema versioning + fallback rebuild logic.
 - [ ] T013 [P] Add thumbnail/streaming utilities: ffmpeg integration for video poster frames, gifsicle/image resizing in `backend/src/media/thumbnails.rs`.
