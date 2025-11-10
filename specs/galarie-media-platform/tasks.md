@@ -33,7 +33,7 @@ description: "Task list for Galarie media platform core feature"
 ## Phase 2: Foundational (Blocking Prerequisites)
 
 - [x] T010 Scaffold backend Rust workspace `backend/` with Axum app, configuration loader, and OTLP exporter wiring.
-- [ ] T011 Implement filesystem watcher/indexer skeleton in `backend/src/indexer.rs` that walks `GALARIE_MEDIA_ROOT` and emits `MediaFile` structs (no cache persistence yet).
+- [x] T011 Implement filesystem watcher/indexer skeleton in `backend/src/indexer.rs` that walks `GALARIE_MEDIA_ROOT` and emits `MediaFile` structs (no cache persistence yet).
 - [ ] T012 Initialize JSON cache module `backend/src/cache/mod.rs` to persist/read `/workspace/.cache/index.json` with schema versioning + fallback rebuild logic.
 - [ ] T013 [P] Add thumbnail/streaming utilities: ffmpeg integration for video poster frames, gifsicle/image resizing in `backend/src/media/thumbnails.rs`.
 - [ ] T014 [P] Configure OpenTelemetry spans/logs/metrics in `backend/src/o11y/mod.rs` (search, rebuild, slideshow, video playback events) and expose `POST /api/v1/index/rebuild`.

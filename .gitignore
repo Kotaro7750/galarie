@@ -3,6 +3,7 @@
 .devcontainer/*.swp
 .codex/*
 !.codex/prompts/
+.serena/
 
 # Node / frontend
 frontend/node_modules/
