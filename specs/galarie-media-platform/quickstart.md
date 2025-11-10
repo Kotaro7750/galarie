@@ -58,6 +58,15 @@ cargo run -- \
   --listen 0.0.0.0:$GALARIE_PORT
 ```
 
+Or simply invoke the shared Makefile targets from the repo root:
+
+```bash
+make backend/test
+make backend/lint
+```
+
+Run `make help` anytime to list all available targets.
+
 Go variant:
 
 ```bash
@@ -84,6 +93,14 @@ npm run dev   # http://localhost:5173 by default
 # or build & serve
 npm run build
 npm run preview
+```
+
+Makefile wrappers from the repo root:
+
+```bash
+make frontend/install
+make frontend/dev
+make frontend/test
 ```
 
 Configure `.env`:
