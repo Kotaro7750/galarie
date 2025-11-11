@@ -8,6 +8,7 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tokio::{sync::mpsc, task::JoinHandle, time};
+use tracing::instrument;
 use walkdir::{DirEntry, WalkDir};
 
 /// Representation of a media file discovered on disk.
@@ -146,20 +147,24 @@ async fn run_loop(config: IndexerConfig, mut tx: mpsc::Sender<IndexEvent>) -> Re
     Ok(())
 }
 
+#[instrument(skip(config, tx), err)]
 async fn emit_snapshot(config: &IndexerConfig, tx: &mut mpsc::Sender<IndexEvent>) -> Result<()> {
     let root = config.root.clone();
     let started = Instant::now();
-    let files = tokio::task::spawn_blocking(move || scan_media(&root)).await??;
-    let duration = started.elapsed();
+
+    let span = tracing::Span::current();
+    let files = tokio::task::spawn_blocking(move || span.in_scope(|| scan_media(&root))).await??;
+
     let event = IndexEvent::Snapshot {
         files,
         scanned_at: Utc::now(),
-        duration,
+        duration: started.elapsed(),
     };
     let _ = tx.send(event).await;
     Ok(())
 }
 
+#[instrument(skip(root), fields(media_root = %root.display()), err)]
 fn scan_media(root: &Path) -> Result<Vec<MediaFile>> {
     if !root.exists() {
         anyhow::bail!(
@@ -180,18 +185,20 @@ fn scan_media(root: &Path) -> Result<Vec<MediaFile>> {
             }
         };
 
+        let rel_display = entry
+            .path()
+            .strip_prefix(root)
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|_| entry.path().display().to_string());
+
         if !entry.file_type().is_file() {
             continue;
         }
 
-        match build_media_file(root, &entry, indexed_at) {
+        match build_media_file(root, &entry, indexed_at, &rel_display) {
             Ok(media_file) => files.push(media_file),
             Err(err) => {
-                tracing::warn!(
-                    path = %entry.path().display(),
-                    error = ?err,
-                    "skipping media file due to error"
-                );
+                tracing::warn!(path = %rel_display, error = ?err, "skipping media file due to error");
             }
         }
     }
@@ -199,7 +206,13 @@ fn scan_media(root: &Path) -> Result<Vec<MediaFile>> {
     Ok(files)
 }
 
-fn build_media_file(root: &Path, entry: &DirEntry, indexed_at: DateTime<Utc>) -> Result<MediaFile> {
+#[instrument(skip(root, entry, indexed_at, rel_display), fields(path = %rel_display))]
+fn build_media_file(
+    root: &Path,
+    entry: &DirEntry,
+    indexed_at: DateTime<Utc>,
+    rel_display: &str,
+) -> Result<MediaFile> {
     let relative = entry
         .path()
         .strip_prefix(root)
@@ -208,11 +221,14 @@ fn build_media_file(root: &Path, entry: &DirEntry, indexed_at: DateTime<Utc>) ->
     let relative_path = relative_to_string(relative);
     let metadata = entry.metadata().context("failed to read metadata")?;
     let filesize = metadata.len();
+    let media_type = detect_media_type(entry.path());
+
+    tracing::info!(path = %rel_display,"scanned media file {}", relative_path);
 
     Ok(MediaFile {
         id: stable_id(relative),
         relative_path,
-        media_type: detect_media_type(entry.path()),
+        media_type,
         tags: Vec::new(),
         attributes: HashMap::new(),
         filesize,

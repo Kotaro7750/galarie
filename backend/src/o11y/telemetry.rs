@@ -13,14 +13,12 @@ use tracing_subscriber::{EnvFilter, Registry, layer::SubscriberExt, util::Subscr
 
 use crate::config::AppConfig;
 
-/// Boots tracing/logging layers and holds the providers for graceful shutdown.
 pub struct TelemetryGuard {
     tracer_provider: Option<sdk::trace::SdkTracerProvider>,
-    logger_provider: Option<sdk::logs::SdkLoggerProvider>,
+    logger_provider: Option<SdkLoggerProvider>,
 }
 
 impl TelemetryGuard {
-    /// Configure tracing subscribers + OTLP exporter based on runtime config.
     pub fn init(config: &AppConfig) -> Result<Self> {
         let env_filter = EnvFilter::try_from_default_env()
             .or_else(|_| EnvFilter::try_new(&config.log.level))
@@ -88,7 +86,6 @@ struct OtelPipelines {
     logger_provider: SdkLoggerProvider,
 }
 
-/// Build OTLP exporters + tracing/logging layers according to configuration.
 fn build_otel_pipelines(config: &AppConfig) -> Result<Option<OtelPipelines>> {
     let endpoint = match &config.otel.endpoint {
         Some(endpoint) if !endpoint.trim().is_empty() => endpoint.clone(),

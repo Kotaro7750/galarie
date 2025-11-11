@@ -4,17 +4,21 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use image::{imageops::FilterType, DynamicImage, ImageFormat, ImageReader};
+use image::{DynamicImage, ImageFormat, ImageReader, imageops::FilterType};
 use serde::{Deserialize, Serialize};
 use tokio::{process::Command, task, time::timeout};
 
 use crate::indexer::MediaType;
 
+#[allow(dead_code)]
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(20);
+#[allow(dead_code)]
 const THUMBNAIL_ROOT: &str = "thumbnails";
+#[allow(dead_code)]
 const THUMBNAIL_EXT: &str = ".jpg";
 
 /// Default thumbnail sizes supported by the backend.
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ThumbnailSize {
@@ -42,6 +46,7 @@ impl ThumbnailSize {
 }
 
 /// Describes the thumbnail artifact generated for a media file.
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThumbnailArtifact {
     /// Path relative to the cache directory.
@@ -52,6 +57,7 @@ pub struct ThumbnailArtifact {
 }
 
 /// Input describing the media file to generate a thumbnail for.
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct ThumbnailSpec {
     pub media_id: String,
@@ -60,6 +66,7 @@ pub struct ThumbnailSpec {
 }
 
 /// Coordinates on-disk thumbnail generation for images, GIFs, and videos.
+#[allow(dead_code)]
 pub struct ThumbnailGenerator {
     cache_dir: PathBuf,
     ffmpeg_path: PathBuf,
@@ -67,6 +74,7 @@ pub struct ThumbnailGenerator {
     timeout: Duration,
 }
 
+#[allow(dead_code)]
 impl ThumbnailGenerator {
     pub fn new(cache_dir: impl Into<PathBuf>) -> Self {
         Self {
@@ -239,10 +247,12 @@ impl ThumbnailGenerator {
     }
 }
 
+#[allow(dead_code)]
 fn resize_image(img: DynamicImage, width: u32, height: u32) -> DynamicImage {
     img.resize(width, height, FilterType::CatmullRom)
 }
 
+#[allow(dead_code)]
 fn save_as_jpeg(image: DynamicImage, target: &Path) -> Result<()> {
     image
         .save_with_format(target, ImageFormat::Jpeg)

@@ -24,7 +24,7 @@ async fn main() -> Result<()> {
     let snapshot_state = Arc::new(RwLock::new(initial_snapshot));
 
     let _telemetry = o11y::TelemetryGuard::init(&config)?;
-    let state = AppState::new(config.clone(), snapshot_state.clone());
+    let state = AppState::new(config.clone(), cache_store.clone(), snapshot_state.clone());
     let (indexer_handle, mut index_events) =
         Indexer::spawn(IndexerConfig::new(config.media_root.clone()));
 

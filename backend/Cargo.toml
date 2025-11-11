@@ -8,9 +8,9 @@ anyhow = "1.0"
 axum = { version = "0.8", features = ["macros"] }
 clap = { version = "4.5", features = ["derive", "env"] }
 chrono = { version = "0.4", features = ["serde", "clock"] }
-opentelemetry = { version = "0.31", features = ["trace", "logs"] }
-opentelemetry-otlp = { version = "0.31", features = ["grpc-tonic"] }
-opentelemetry_sdk = { version = "0.31", features = ["trace", "logs", "rt-tokio"] }
+opentelemetry = { version = "0.31", features = ["trace", "logs", "metrics"] }
+opentelemetry-otlp = { version = "0.31", features = ["grpc-tonic", "metrics"] }
+opentelemetry_sdk = { version = "0.31", features = ["trace", "logs", "metrics", "rt-tokio"] }
 opentelemetry-semantic-conventions = "0.31"
 opentelemetry-appender-tracing = "0.31.1"
 sha1 = "0.10"
@@ -28,3 +28,4 @@ image = { version = "0.25", default-features = false, features = ["jpeg", "png",
 [dev-dependencies]
 tempfile = "3.10"
 which = "6.0"
+tower = "0.5"
