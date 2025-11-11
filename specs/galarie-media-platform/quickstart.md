@@ -152,13 +152,15 @@ curl "http://localhost:8080/api/v1/media?tags=cat,sunset&attributes[rating]=5"
 
 ## 10. OpenAPI Docs
 
-To preview API docs (optional):
+Swagger UI is already bundled inside the devcontainer stack. Once `devcontainer up` is running, browse `http://localhost:8088` to see the latest `specs/galarie-media-platform/contracts/openapi.yaml`. Edits to the spec hot-reload automatically because the file is volume-mounted into the container.
+
+If you prefer Redoc locally:
 
 ```bash
 npx -y redoc-cli serve specs/galarie-media-platform/contracts/openapi.yaml
 ```
 
-Browse `http://localhost:8080` (default). Use `Ctrl+C` to stop.
+Use `Ctrl+C` to stop the temporary Redoc server.
 
 ## 11. Troubleshooting
 
