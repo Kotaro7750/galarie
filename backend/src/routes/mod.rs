@@ -2,22 +2,25 @@ use std::{sync::Arc, time::Instant};
 
 use axum::{Json, Router, extract::State, response::IntoResponse, routing::get};
 use serde::Serialize;
+use tokio::sync::RwLock;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::Level;
 
-use crate::config::AppConfig;
+use crate::{cache::CacheSnapshot, config::AppConfig};
 
 /// Shared application state cloned into each request handler.
 #[derive(Clone)]
 pub struct AppState {
     pub config: Arc<AppConfig>,
+    pub snapshot: Arc<RwLock<CacheSnapshot>>,
     pub boot_instant: Instant,
 }
 
 impl AppState {
-    pub fn new(config: Arc<AppConfig>) -> Self {
+    pub fn new(config: Arc<AppConfig>, snapshot: Arc<RwLock<CacheSnapshot>>) -> Self {
         Self {
             config,
+            snapshot,
             boot_instant: Instant::now(),
         }
     }
@@ -38,13 +41,18 @@ struct HealthResponse {
     media_root: String,
     cache_dir: String,
     uptime_seconds: f64,
+    cache_items: usize,
+    cache_generated_at: String,
 }
 
 async fn healthz(State(state): State<AppState>) -> impl IntoResponse {
+    let snapshot = state.snapshot.read().await;
     Json(HealthResponse {
         status: "ok",
         media_root: state.config.media_root.display().to_string(),
         cache_dir: state.config.cache_dir.display().to_string(),
         uptime_seconds: state.boot_instant.elapsed().as_secs_f64(),
+        cache_items: snapshot.media.len(),
+        cache_generated_at: snapshot.generated_at.to_rfc3339(),
     })
 }

@@ -1,3 +1,4 @@
+mod cache;
 mod config;
 mod indexer;
 mod o11y;
@@ -6,30 +7,55 @@ mod routes;
 use std::sync::Arc;
 
 use anyhow::Result;
+use cache::CacheStore;
 use config::AppConfig;
 use indexer::{IndexEvent, Indexer, IndexerConfig};
 use routes::AppState;
+use tokio::sync::RwLock;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let config = Arc::new(AppConfig::load()?);
+    let cache_store = Arc::new(CacheStore::new(config.cache_dir.clone()));
+    let media_root_for_cache = config.media_root.clone();
+    let initial_snapshot =
+        cache_store.load_or_rebuild(|| Indexer::scan_once(&media_root_for_cache))?;
+    let snapshot_state = Arc::new(RwLock::new(initial_snapshot));
 
     let _telemetry = o11y::TelemetryGuard::init(&config)?;
-    let state = AppState::new(config.clone());
+    let state = AppState::new(config.clone(), snapshot_state.clone());
     let (indexer_handle, mut index_events) =
         Indexer::spawn(IndexerConfig::new(config.media_root.clone()));
 
+    let cache_store_for_task = cache_store.clone();
+    let snapshot_state_for_task = snapshot_state.clone();
     tokio::spawn(async move {
         while let Some(event) = index_events.recv().await {
             match event {
                 IndexEvent::Snapshot {
-                    files, duration, ..
+                    files,
+                    duration,
+                    scanned_at,
                 } => {
+                    let elapsed_ms = duration.as_millis();
+                    let file_count = files.len();
+
                     tracing::info!(
-                        count = files.len(),
-                        elapsed_ms = duration.as_millis(),
-                        "filesystem scan complete"
+                        elapsed_ms,
+                        file_count = file_count,
+                        scanned_at = %scanned_at.to_rfc3339(),
+                        "filesystem scan complete in {elapsed_ms} ms, found {file_count} files",
                     );
+
+                    match cache_store_for_task.persist(files) {
+                        Ok(snapshot) => {
+                            *snapshot_state_for_task.write().await = snapshot.clone();
+                            tracing::info!("filesystem scan persisted to cache");
+                        }
+                        Err(err) => {
+                            tracing::error!(error = %err, "failed to persist cache snapshot");
+                        }
+                    }
                 }
                 IndexEvent::Error { message } => {
                     tracing::warn!(%message, "indexer error");

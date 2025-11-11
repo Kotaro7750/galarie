@@ -97,11 +97,6 @@ impl IndexerHandle {
     pub fn abort(self) {
         self.join_handle.abort();
     }
-
-    /// Await graceful completion of the indexer loop.
-    pub async fn shutdown(self) -> Result<(), tokio::task::JoinError> {
-        self.join_handle.await
-    }
 }
 
 /// Filesystem indexer that periodically scans the media root.
