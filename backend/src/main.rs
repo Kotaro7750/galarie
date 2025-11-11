@@ -1,6 +1,7 @@
 mod cache;
 mod config;
 mod indexer;
+mod media;
 mod o11y;
 mod routes;
 
