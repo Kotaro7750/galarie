@@ -53,7 +53,7 @@ description: "Task list for Galarie media platform core feature"
 
 - [X] T101 [P][US1] Contract test `backend/tests/contract/media_search.rs` verifying AND semantics, pagination, and error cases.
 - [X] T102 [US1] Integration test `backend/tests/integration/search_cache.rs` ensures cache miss rebuilds and responds ≤1s for sample dataset.
-- [ ] T103 [P][US1] Frontend unit tests (Vitest) for search form logic + tag filter parsing (`frontend/src/hooks/useTagFilters.test.ts`).
+- [X] T103 [P][US1] Frontend unit tests (Vitest) for search form logic + tag filter parsing (`frontend/src/hooks/useTagFilters.test.ts`).
 
 ### Implementation
 
