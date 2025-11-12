@@ -63,7 +63,7 @@ description: "Task list for Galarie media platform core feature"
 - [X] T113 Generate thumbnails on-demand/cache path management in `backend/src/media/thumbnails.rs`, returning CDN-safe URLs.
 - [X] T114 [P] Build React search UI (`frontend/src/pages/SearchPage.tsx`) with tag filter inputs, multi-value attribute chips, results grid, and loading state.
 - [X] T115 [P] Add SWR/TanStack Query data fetching service (`frontend/src/services/mediaClient.ts`) with error toasts + retry.
-- [ ] T116 Implement state persistence for search filters via `sessionStorage` (`frontend/src/hooks/usePersistedFilters.ts`).
+- [X] T116 Implement state persistence for search filters via `sessionStorage` (`frontend/src/hooks/usePersistedFilters.ts`).
 - [ ] T117 Instrument search tracing/logging (span attributes: tags count, cache hit, duration) and expose toggle to disable instrumentation for rollback.
 
 **Rollback**: Removing `frontend` search components + disabling `GET /api/v1/media` route returns system to baseline; cache JSON can be deleted safely.

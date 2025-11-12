@@ -21,6 +21,7 @@ import { useMutation } from '@tanstack/react-query'
 
 import { MediaSummary } from '../types/media'
 import { MediaSearchRequest, fetchMedia } from '../services/mediaClient'
+import { usePersistedFilters } from '../hooks/usePersistedFilters'
 
 type AttributeMap = Record<string, string[]>
 
@@ -29,10 +30,14 @@ type SearchPageProps = {
 }
 
 export function SearchPage({ apiBaseUrl }: SearchPageProps) {
-  const [tagInput, setTagInput] = useState('sunset, coast')
+  const { filters, setTags: persistTags, setAttributes: persistAttributes } = usePersistedFilters({
+    tags: 'sunset, coast',
+    attributes: { rating: ['5'] },
+  })
+  const tagInput = filters.tags
   const [attrKey, setAttrKey] = useState('rating')
   const [attrValue, setAttrValue] = useState('5')
-  const [attributes, setAttributes] = useState<AttributeMap>({ rating: ['5'] })
+  const attributes = filters.attributes
   const [formError, setFormError] = useState<string | null>(null)
   const [toastOpen, setToastOpen] = useState(false)
 
@@ -46,25 +51,22 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
     const key = attrKey.trim().toLowerCase()
     const value = attrValue.trim()
     if (!key || !value) return
-    setAttributes((prev) => {
-      const existing = prev[key] ?? []
-      if (existing.includes(value)) {
-        return prev
-      }
-      return { ...prev, [key]: [...existing, value] }
-    })
+    const existing = attributes[key] ?? []
+    if (existing.includes(value)) {
+      return
+    }
+    persistAttributes({ ...attributes, [key]: [...existing, value] })
     setAttrValue('')
   }
 
   const handleRemoveAttribute = (key: string, value: string) => {
-    setAttributes((prev) => {
-      const values = prev[key]?.filter((item) => item !== value) ?? []
-      if (values.length === 0) {
-        const { [key]: _unused, ...rest } = prev
-        return rest
-      }
-      return { ...prev, [key]: values }
-    })
+    const values = attributes[key]?.filter((item) => item !== value) ?? []
+    if (values.length === 0) {
+      const { [key]: _unused, ...rest } = attributes
+      persistAttributes(rest)
+    } else {
+      persistAttributes({ ...attributes, [key]: values })
+    }
   }
 
   const handleSearch = () => {
@@ -104,7 +106,7 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
                 error={Boolean(formError)}
                 FormHelperTextProps={{ sx: formError ? { color: 'error.main' } : undefined }}
                 helperText={formError ?? 'Every tag is required (AND semantics)'}
-                onChange={(event) => setTagInput(event.target.value)}
+                onChange={(event) => persistTags(event.target.value)}
               />
               <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} width={{ xs: '100%', md: 380 }}>
                 <TextField
