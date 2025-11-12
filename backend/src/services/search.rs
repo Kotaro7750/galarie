@@ -279,7 +279,7 @@ mod tests {
             filesize: 0,
             dimensions: None,
             duration_ms: None,
-            thumbnail_path: None,
+            thumbnail_path: Some(format!("/api/v1/media/{id}/thumbnail")),
             hash: None,
             indexed_at: Utc::now(),
         }

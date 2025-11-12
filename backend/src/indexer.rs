@@ -241,8 +241,10 @@ fn build_media_file(
 
     tracing::info!(path = %rel_display,"scanned media file {}", relative_path);
 
+    let media_id = stable_id(relative);
+
     Ok(MediaFile {
-        id: stable_id(relative),
+        id: media_id.clone(),
         relative_path,
         media_type,
         tags: parse_result.tags,
@@ -250,7 +252,7 @@ fn build_media_file(
         filesize,
         dimensions: None,
         duration_ms: None,
-        thumbnail_path: None,
+        thumbnail_path: Some(format!("/api/v1/media/{media_id}/thumbnail")),
         hash: None,
         indexed_at,
     })

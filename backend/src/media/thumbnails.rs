@@ -36,7 +36,7 @@ impl ThumbnailSize {
         }
     }
 
-    fn as_dir(self) -> &'static str {
+    pub fn as_dir(self) -> &'static str {
         match self {
             ThumbnailSize::Small => "small",
             ThumbnailSize::Medium => "medium",

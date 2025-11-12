@@ -9,6 +9,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 pub mod search;
+pub mod thumbnails;
 
 /// Result alias for JSON payloads that map API errors automatically.
 pub type ApiResult<T> = Result<Json<T>, ApiError>;
