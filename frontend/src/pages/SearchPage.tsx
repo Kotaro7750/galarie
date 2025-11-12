@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Alert,
   Box,
@@ -10,14 +10,17 @@ import {
   CircularProgress,
   Divider,
   Grid,
+  Snackbar,
   Stack,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material'
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded'
+import { useMutation } from '@tanstack/react-query'
 
 import { MediaSummary } from '../types/media'
+import { MediaSearchRequest, fetchMedia } from '../services/mediaClient'
 
 type AttributeMap = Record<string, string[]>
 
@@ -30,8 +33,14 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
   const [attrKey, setAttrKey] = useState('rating')
   const [attrValue, setAttrValue] = useState('5')
   const [attributes, setAttributes] = useState<AttributeMap>({ rating: ['5'] })
-  const [results, setResults] = useState<MediaSummary[]>(SAMPLE_RESULTS)
-  const [isLoading, setIsLoading] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [toastOpen, setToastOpen] = useState(false)
+
+  const searchMutation = useMutation({
+    mutationFn: (payload: MediaSearchRequest) => fetchMedia(payload, apiBaseUrl),
+  })
+
+  const isLoading = searchMutation.isPending
 
   const handleAddAttribute = () => {
     const key = attrKey.trim().toLowerCase()
@@ -59,15 +68,27 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
   }
 
   const handleSearch = () => {
-    setIsLoading(true)
-    // Placeholder for T115 – replace with TanStack Query once the media client exists.
-    setTimeout(() => {
-      setResults(SAMPLE_RESULTS)
-      setIsLoading(false)
-    }, 600)
+    const tags = tagInput
+      .split(',')
+      .map((token) => token.trim().toLowerCase())
+      .filter((token) => token.length > 0)
+    if (tags.length === 0) {
+      setFormError('Enter at least one tag to search')
+      return
+    }
+    setFormError(null)
+    searchMutation.mutate({ tags, attributes, page: 1, pageSize: 60 })
   }
 
   const attributeChips = useMemo(() => Object.entries(attributes), [attributes])
+  const fetchedItems = searchMutation.data?.items ?? SAMPLE_RESULTS
+  const totalResults = searchMutation.data?.total ?? fetchedItems.length
+
+  useEffect(() => {
+    if (searchMutation.isError) {
+      setToastOpen(true)
+    }
+  }, [searchMutation.isError])
 
   return (
     <Stack spacing={4} sx={{ py: { xs: 4, md: 6 } }}>
@@ -80,6 +101,9 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
                 label="Tags (comma separated)"
                 helperText="Every tag is required (AND semantics)"
                 value={tagInput}
+                error={Boolean(formError)}
+                FormHelperTextProps={{ sx: formError ? { color: 'error.main' } : undefined }}
+                helperText={formError ?? 'Every tag is required (AND semantics)'}
                 onChange={(event) => setTagInput(event.target.value)}
               />
               <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} width={{ xs: '100%', md: 380 }}>
@@ -137,7 +161,7 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
         <CardContent>
           <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              Results ({results.length})
+              Results ({totalResults})
             </Typography>
             {isLoading && (
               <Stack direction="row" spacing={1} alignItems="center" color="text.secondary">
@@ -147,11 +171,11 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
             )}
           </Stack>
           <Divider sx={{ mb: 2 }} />
-          {results.length === 0 ? (
+          {fetchedItems.length === 0 ? (
             <Alert severity="info">No media yet – adjust filters and try again.</Alert>
           ) : (
             <Grid container spacing={2}>
-              {results.map((media) => (
+              {fetchedItems.map((media) => (
                 <Grid item xs={12} sm={6} md={4} lg={3} key={media.id}>
                   <MediaCard media={media} apiBaseUrl={apiBaseUrl} />
                 </Grid>
@@ -160,6 +184,32 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
           )}
         </CardContent>
       </Card>
+
+      <Snackbar
+        open={toastOpen}
+        autoHideDuration={5000}
+        onClose={() => setToastOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          severity="error"
+          onClose={() => setToastOpen(false)}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => {
+                setToastOpen(false)
+                handleSearch()
+              }}
+            >
+              Retry
+            </Button>
+          }
+        >
+          {resolveErrorMessage(searchMutation.error)}
+        </Alert>
+      </Snackbar>
     </Stack>
   )
 }
@@ -218,6 +268,13 @@ function resolveThumbnail(path: string | null | undefined, apiBaseUrl: string) {
     return path
   }
   return `${apiBaseUrl}${path}`
+}
+
+function resolveErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message
+  }
+  return 'Unable to load media results'
 }
 
 const SAMPLE_RESULTS: MediaSummary[] = [
