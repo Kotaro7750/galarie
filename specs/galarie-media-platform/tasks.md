@@ -37,7 +37,7 @@ description: "Task list for Galarie media platform core feature"
 - [x] T012 Initialize JSON cache module `backend/src/cache/mod.rs` to persist/read `/workspace/.cache/index.json` with schema versioning + fallback rebuild logic.
 - [x] T013 [P] Add thumbnail/streaming utilities: ffmpeg integration for video poster frames, gifsicle/image resizing in `backend/src/media/thumbnails.rs`.
 - [x] T014 [P] Configure OpenTelemetry spans/logs/metrics in `backend/src/o11y/mod.rs` (search, rebuild, slideshow, video playback events) and expose `POST /api/v1/index/rebuild`.
-- [ ] T014a [P] Add HTTP metrics middleware (OpenTelemetry) for all API endpoints to capture request count and latency.
+- [ ] T014a [P] Add HTTP metrics middleware (OpenTelemetry) for all API endpoints to capture request count and latency. _(Deferred until after Phase 3 US1 per 2025-11-12 decision; observability impact accepted temporarily.)_
 - [x] T015 Create shared error handling + REST response layer in `backend/src/api/mod.rs` (ErrorResponse type, consistent codes).
 - [x] T016 Setup frontend skeleton `frontend/` (Vite + React + TypeScript + Tailwind) with environment config for API base URL and lint/test tooling (ESLint, Vitest).
 - [x] T017 [P] Add Playwright E2E harness referencing Chrome and devcontainer instructions.
