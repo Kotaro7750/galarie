@@ -6,7 +6,8 @@ FRONTEND_PM ?= npm
 
 .PHONY: help \
 	backend/test backend/lint backend/fmt \
-	frontend/install frontend/dev frontend/test frontend/lint frontend/build
+	frontend/install frontend/dev frontend/test frontend/lint frontend/build \
+	frontend/e2e frontend/e2e-ui frontend/playwright-install
 
 help:
 	@printf "Available targets:\n"
@@ -18,6 +19,9 @@ help:
 	@printf "  make frontend/test   # %s run test\n" "$(FRONTEND_PM)"
 	@printf "  make frontend/lint   # %s run lint\n" "$(FRONTEND_PM)"
 	@printf "  make frontend/build  # %s run build\n" "$(FRONTEND_PM)"
+	@printf "  make frontend/e2e    # %s run test:e2e (Playwright)\n" "$(FRONTEND_PM)"
+	@printf "  make frontend/e2e-ui # %s run test:e2e:ui (Playwright UI)\n" "$(FRONTEND_PM)"
+	@printf "  make frontend/playwright-install # %s run playwright:install\n" "$(FRONTEND_PM)"
 
 backend/test:
 	@if [ ! -d "$(BACKEND_DIR)" ]; then \
@@ -74,3 +78,24 @@ frontend/build:
 		exit 1; \
 	fi
 	cd "$(FRONTEND_DIR)" && $(FRONTEND_PM) run build
+
+frontend/e2e:
+	@if [ ! -d "$(FRONTEND_DIR)" ]; then \
+		echo "Missing $(FRONTEND_DIR)/. Scaffold frontend before running frontend/e2e." >&2; \
+		exit 1; \
+	fi
+	cd "$(FRONTEND_DIR)" && $(FRONTEND_PM) run test:e2e
+
+frontend/e2e-ui:
+	@if [ ! -d "$(FRONTEND_DIR)" ]; then \
+		echo "Missing $(FRONTEND_DIR)/. Scaffold frontend before running frontend/e2e-ui." >&2; \
+		exit 1; \
+	fi
+	cd "$(FRONTEND_DIR)" && $(FRONTEND_PM) run test:e2e:ui
+
+frontend/playwright-install:
+	@if [ ! -d "$(FRONTEND_DIR)" ]; then \
+		echo "Missing $(FRONTEND_DIR)/. Scaffold frontend before running frontend/playwright-install." >&2; \
+		exit 1; \
+	fi
+	cd "$(FRONTEND_DIR)" && $(FRONTEND_PM) run playwright:install

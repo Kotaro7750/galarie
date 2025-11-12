@@ -128,7 +128,31 @@ Configure `.env`:
 VITE_API_BASE=http://localhost:8080/api/v1
 ```
 
-## 8. Index Rebuild & Verification
+## 8. Playwright E2E Harness
+
+Install Playwright system dependencies (one-time per devcontainer rebuild):
+
+```bash
+sudo npx playwright install-deps chromium
+```
+
+Then install the Chromium binary into the repo cache:
+
+```bash
+make frontend/playwright-install
+```
+
+Run the headless suite:
+
+```bash
+make frontend/e2e
+```
+
+To debug locally, `make frontend/e2e-ui` opens the Playwright test runner UI. The harness boots the Vite dev server automatically on port `4173`, so no manual server launch is required.
+
+> Browsers are stored under `frontend/node_modules/playwright-core/.local-browsers`. Run the install step in each environment you plan to execute tests from (mac host + devcontainer).
+
+## 9. Index Rebuild & Verification
 
 Trigger cache rebuild:
 
@@ -142,7 +166,7 @@ Check search endpoint:
 curl "http://localhost:8080/api/v1/media?tags=cat,sunset&attributes[rating]=5"
 ```
 
-## 9. UI Workflow Test
+## 10. UI Workflow Test
 
 1. Open the frontend (dev server or bundled build).  
 2. Perform tag search → thumbnails appear rapidly (<=1s).  
@@ -150,7 +174,7 @@ curl "http://localhost:8080/api/v1/media?tags=cat,sunset&attributes[rating]=5"
 4. Pick a video → use loop/A-B controls; state persists until reload.  
 5. Observe OpenTelemetry traces/logs (if collector container is running).
 
-## 10. OpenAPI Docs
+## 11. OpenAPI Docs
 
 Swagger UI is already bundled inside the devcontainer stack. Once `devcontainer up` is running, browse `http://localhost:8088` to see the latest `specs/galarie-media-platform/contracts/openapi.yaml`. Edits to the spec hot-reload automatically because the file is volume-mounted into the container.
 
@@ -162,7 +186,7 @@ npx -y redoc-cli serve specs/galarie-media-platform/contracts/openapi.yaml
 
 Use `Ctrl+C` to stop the temporary Redoc server.
 
-## 11. Troubleshooting
+## 12. Troubleshooting
 
 - Ensure media path is mounted read-only; backend logs warn if missing.  
 - Delete cache (`rm -rf $GALARIE_CACHE_DIR/index.json`) if tags change.  

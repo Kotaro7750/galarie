@@ -1,8 +1,10 @@
 node_modules/
 dist/
 coverage/
+.vite/
 .cache/
 .tmp/
 frontend/node_modules/
 frontend/dist/
+frontend/.vite/
 backend/target/

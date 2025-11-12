@@ -9,7 +9,7 @@ const reactHooksConfig = reactHooks.configs['recommended-latest']
 const reactRefreshConfig = reactRefresh.configs.vite
 
 export default defineConfig([
-  globalIgnores(['dist', 'coverage', 'node_modules']),
+  globalIgnores(['dist', 'coverage', 'node_modules', '.vite', 'playwright-report', 'test-results']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
