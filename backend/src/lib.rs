@@ -5,4 +5,5 @@ pub mod indexer;
 pub mod media;
 pub mod o11y;
 pub mod routes;
+pub mod services;
 pub mod tags;
