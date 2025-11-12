@@ -19,6 +19,7 @@ use http_body_util::BodyExt;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use tower::ServiceExt;
+use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct StubApp {
@@ -77,7 +78,7 @@ async fn media_search(query: Result<Query<SearchQuery>, QueryRejection>) -> Resp
         }
     };
 
-    let tags = query.tags.as_deref().map(str::trim).unwrap_or("");
+    let tags = query.required_tags();
     if tags.is_empty() {
         return validation_failed("tags query parameter is required");
     }
@@ -92,66 +93,32 @@ async fn media_search(query: Result<Query<SearchQuery>, QueryRejection>) -> Resp
         return validation_failed("pageSize must be between 1 and 200");
     }
 
+    let attributes = query.attribute_filters();
+    let mut matches: Vec<_> = stub_media()
+        .into_iter()
+        .filter(|item| item.matches(&tags, &attributes))
+        .map(StubMedia::into_value)
+        .collect();
+
+    // deterministic order for pagination expectations
+    matches.sort_by(|a, b| {
+        a.get("id")
+            .and_then(Value::as_str)
+            .cmp(&b.get("id").and_then(Value::as_str))
+    });
+
+    let total = matches.len();
+    let start = (page - 1) * page_size;
+    let end = start.saturating_add(page_size).min(total);
+    let items = if start >= total {
+        Vec::new()
+    } else {
+        matches[start..end].to_vec()
+    };
+
     let payload = json!({
-        "items": [
-            {
-                "id": "img-001",
-                "relativePath": "photos/sunsets/img-001.jpg",
-                "mediaType": "image",
-                "tags": [
-                    {
-                        "rawToken": "sunset",
-                        "type": "simple",
-                        "name": "sunset",
-                        "value": null,
-                        "normalized": "sunset"
-                    },
-                    {
-                        "rawToken": "rating-5",
-                        "type": "kv",
-                        "name": "rating",
-                        "value": "5",
-                        "normalized": "rating=5"
-                    }
-                ],
-                "attributes": {
-                    "rating": "5",
-                    "camera": "alpha"
-                },
-                "filesize": 24567,
-                "dimensions": {
-                    "width": 1920,
-                    "height": 1080
-                },
-                "durationMs": null,
-                "thumbnailPath": "/thumbnails/img-001.jpg",
-                "indexedAt": "2025-01-01T12:00:00Z"
-            },
-            {
-                "id": "gif-002",
-                "relativePath": "gifs/loop/gif-002.gif",
-                "mediaType": "gif",
-                "tags": [
-                    {
-                        "rawToken": "loop",
-                        "type": "simple",
-                        "name": "loop",
-                        "value": null,
-                        "normalized": "loop"
-                    }
-                ],
-                "attributes": {},
-                "filesize": 9876,
-                "dimensions": {
-                    "width": 640,
-                    "height": 480
-                },
-                "durationMs": 3000,
-                "thumbnailPath": "/thumbnails/gif-002.gif",
-                "indexedAt": "2025-01-01T12:05:00Z"
-            }
-        ],
-        "total": 2,
+        "items": items,
+        "total": total,
         "page": page,
         "pageSize": page_size
     });
@@ -232,23 +199,27 @@ async fn media_stream(
         .header(ACCEPT_RANGES, HeaderValue::from_static("bytes"));
 
     if headers.contains_key("Range") {
+        let body = Bytes::from_static(b"partial-byts");
         builder = builder
             .status(StatusCode::PARTIAL_CONTENT)
             .header(
                 CONTENT_RANGE,
                 HeaderValue::from_static("bytes 0-11/12"),
             )
-            .header(CONTENT_LENGTH, HeaderValue::from_static("12"));
-        builder
-            .body(Body::from(Bytes::from_static(b"partial-bytes")))
-            .expect("partial stream response")
+            .header(
+                CONTENT_LENGTH,
+                HeaderValue::from_str(&body.len().to_string()).unwrap(),
+            );
+        builder.body(Body::from(body)).expect("partial stream response")
     } else {
+        let body = Bytes::from_static(b"full-response");
         builder = builder
             .status(StatusCode::OK)
-            .header(CONTENT_LENGTH, HeaderValue::from_static("12"));
-        builder
-            .body(Body::from(Bytes::from_static(b"full-response")))
-            .expect("full stream response")
+            .header(
+                CONTENT_LENGTH,
+                HeaderValue::from_str(&body.len().to_string()).unwrap(),
+            );
+        builder.body(Body::from(body)).expect("full stream response")
     }
 }
 
@@ -302,6 +273,8 @@ struct SearchQuery {
     page: Option<usize>,
     #[serde(rename = "pageSize")]
     page_size: Option<usize>,
+    #[serde(flatten)]
+    other: HashMap<String, String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -318,4 +291,146 @@ struct StreamQuery {
 struct IndexRebuildRequest {
     #[serde(default)]
     force: bool,
+}
+
+#[derive(Clone)]
+struct StubMedia {
+    id: &'static str,
+    relative_path: &'static str,
+    media_type: &'static str,
+    tags: &'static [&'static str],
+    attributes: &'static [(&'static str, &'static str)],
+    filesize: u64,
+    dimensions: Option<(u32, u32)>,
+    duration_ms: Option<u64>,
+}
+
+impl SearchQuery {
+    fn required_tags(&self) -> Vec<String> {
+        self.tags
+            .as_deref()
+            .map(parse_csv)
+            .unwrap_or_default()
+    }
+
+    fn attribute_filters(&self) -> HashMap<String, Vec<String>> {
+        let mut filters = HashMap::new();
+        for (key, value) in &self.other {
+            if let Some(name) = key
+                .strip_prefix("attributes[")
+                .and_then(|rest| rest.strip_suffix(']'))
+            {
+                filters
+                    .entry(name.to_ascii_lowercase())
+                    .or_insert_with(Vec::new)
+                    .extend(parse_csv(value).into_iter());
+            }
+        }
+        filters
+    }
+}
+
+impl StubMedia {
+    fn matches(
+        &self,
+        tags: &[String],
+        attributes: &HashMap<String, Vec<String>>,
+    ) -> bool {
+        for tag in tags {
+            if !self
+                .tags
+                .iter()
+                .any(|candidate| candidate.eq_ignore_ascii_case(tag))
+            {
+                return false;
+            }
+        }
+
+        for (key, values) in attributes {
+            let value = self
+                .attributes
+                .iter()
+                .find(|(k, _)| k.eq_ignore_ascii_case(key))
+                .map(|(_, v)| *v);
+
+            match value {
+                Some(actual) => {
+                    if !values
+                        .iter()
+                        .any(|wanted| actual.eq_ignore_ascii_case(wanted))
+                    {
+                        return false;
+                    }
+                }
+                None => return false,
+            }
+        }
+
+        true
+    }
+
+    fn into_value(self) -> Value {
+        json!({
+            "id": self.id,
+            "relativePath": self.relative_path,
+            "mediaType": self.media_type,
+            "tags": self.tags.iter().map(|tag| json!({
+                "rawToken": tag,
+                "type": if tag.contains('-') { "kv" } else { "simple" },
+                "name": tag.split_once('-').map(|(name, _)| name).unwrap_or(tag),
+                "value": tag.split_once('-').map(|(_, value)| value),
+                "normalized": tag.to_ascii_lowercase().replace('-', "="),
+            })).collect::<Vec<_>>(),
+            "attributes": self.attributes.iter().cloned().map(|(k, v)| (k.to_string(), v.to_string())).collect::<HashMap<_, _>>(),
+            "filesize": self.filesize,
+            "dimensions": self.dimensions.map(|(width, height)| json!({ "width": width, "height": height })),
+            "durationMs": self.duration_ms,
+            "thumbnailPath": format!("/thumbnails/{}.jpg", self.id),
+            "indexedAt": "2025-01-01T12:00:00Z"
+        })
+    }
+}
+
+fn stub_media() -> Vec<StubMedia> {
+    vec![
+        StubMedia {
+            id: "img-001",
+            relative_path: "photos/sunsets/img-001.jpg",
+            media_type: "image",
+            tags: &["sunset", "coast", "rating-5"],
+            attributes: &[("rating", "5"), ("camera", "alpha")],
+            filesize: 24_567,
+            dimensions: Some((1920, 1080)),
+            duration_ms: None,
+        },
+        StubMedia {
+            id: "img-002",
+            relative_path: "photos/sunsets/img-002.jpg",
+            media_type: "image",
+            tags: &["sunset", "forest", "rating-4"],
+            attributes: &[("rating", "4")],
+            filesize: 19_000,
+            dimensions: Some((1600, 900)),
+            duration_ms: None,
+        },
+        StubMedia {
+            id: "gif-003",
+            relative_path: "gifs/loop/gif-003.gif",
+            media_type: "gif",
+            tags: &["loop", "fun"],
+            attributes: &[("rating", "3")],
+            filesize: 9_876,
+            dimensions: Some((640, 480)),
+            duration_ms: Some(3_000),
+        },
+    ]
+}
+
+fn parse_csv(input: &str) -> Vec<String> {
+    input
+        .split(',')
+        .map(|token| token.trim())
+        .filter(|token| !token.is_empty())
+        .map(|token| token.to_ascii_lowercase())
+        .collect()
 }

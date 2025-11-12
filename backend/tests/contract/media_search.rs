@@ -5,11 +5,11 @@ use axum::{
 };
 
 #[tokio::test]
-async fn search_returns_contract_shape() {
+async fn search_applies_and_semantics_for_tags_and_attributes() {
     let app = StubApp::new();
     let request = Request::builder()
         .method(Method::GET)
-        .uri("/api/v1/media?tags=sunset,travel&page=2&pageSize=2")
+        .uri("/api/v1/media?tags=sunset,coast&attributes[rating]=5")
         .body(Body::empty())
         .expect("request");
 
@@ -17,12 +17,38 @@ async fn search_returns_contract_shape() {
     assert_eq!(response.status(), StatusCode::OK);
 
     let json = response_json(response).await;
-    assert!(json["items"].is_array());
-    assert!(json["items"][0]["tags"].is_array());
-    assert!(json["items"][0]["attributes"].is_object());
-    assert_eq!(json["page"], 2);
-    assert_eq!(json["pageSize"], 2);
-    assert_eq!(json["total"], 2);
+    let items = json["items"].as_array().expect("items array");
+    assert_eq!(items.len(), 1, "AND filters should narrow to a single match");
+    assert_eq!(items[0]["id"], "img-001");
+    assert_eq!(json["total"], 1);
+}
+
+#[tokio::test]
+async fn search_applies_pagination_rules() {
+    let app = StubApp::new();
+    // page 1
+    let first = Request::builder()
+        .method(Method::GET)
+        .uri("/api/v1/media?tags=sunset&page=1&pageSize=1")
+        .body(Body::empty())
+        .expect("request");
+    let first_response = app.request(first).await;
+    assert_eq!(first_response.status(), StatusCode::OK);
+    let first_json = response_json(first_response).await;
+    assert_eq!(first_json["items"][0]["id"], "img-001");
+    assert_eq!(first_json["total"], 2);
+
+    // page 2 should return the second sunset item
+    let second = Request::builder()
+        .method(Method::GET)
+        .uri("/api/v1/media?tags=sunset&page=2&pageSize=1")
+        .body(Body::empty())
+        .expect("request");
+    let second_response = app.request(second).await;
+    assert_eq!(second_response.status(), StatusCode::OK);
+    let second_json = response_json(second_response).await;
+    assert_eq!(second_json["items"][0]["id"], "img-002");
+    assert_eq!(second_json["page"], 2);
 }
 
 #[tokio::test]
