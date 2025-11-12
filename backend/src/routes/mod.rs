@@ -18,7 +18,7 @@ use tower_http::trace::{MakeSpan, OnRequest, OnResponse, TraceLayer};
 use tracing::{Instrument, Span, field, instrument};
 
 use crate::{
-    api::{self, ApiResponse, ApiResult},
+    api::{self, ApiResponse, ApiResult, search},
     cache::{CacheSnapshot, CacheStore},
     config::{AppConfig, LogConfig, OtelConfig},
     indexer::Indexer,
@@ -52,6 +52,7 @@ impl AppState {
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/healthz", get(healthz))
+        .route("/api/v1/media", get(search::media_search))
         .route("/api/v1/index/rebuild", post(trigger_rebuild))
         .with_state(state)
         .fallback(api::fallback_handler)

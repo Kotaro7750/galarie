@@ -8,6 +8,8 @@ use axum::{
 use serde::Serialize;
 use thiserror::Error;
 
+pub mod search;
+
 /// Result alias for JSON payloads that map API errors automatically.
 pub type ApiResult<T> = Result<Json<T>, ApiError>;
 
