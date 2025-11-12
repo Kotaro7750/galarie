@@ -41,7 +41,7 @@ description: "Task list for Galarie media platform core feature"
 - [x] T015 Create shared error handling + REST response layer in `backend/src/api/mod.rs` (ErrorResponse type, consistent codes).
 - [x] T016 Setup frontend skeleton `frontend/` (Vite + React + TypeScript + Tailwind) with environment config for API base URL and lint/test tooling (ESLint, Vitest).
 - [x] T017 [P] Add Playwright E2E harness referencing Chrome and devcontainer instructions.
-- [ ] T018 Draft contract tests for each API endpoint in `backend/tests/contract/` (Rust integration) verifying failure first (run against stub responses).
+- [X] T018 Draft contract tests for each API endpoint in `backend/tests/contract/` (Rust integration) verifying failure first (run against stub responses).
 
 **Checkpoint**: Backend API skeleton + cache + observability + frontend shell + failing contract tests ready.
 
