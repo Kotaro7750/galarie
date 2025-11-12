@@ -57,7 +57,7 @@ description: "Task list for Galarie media platform core feature"
 
 ### Implementation
 
-- [ ] T110 Implement tag parser + `Tag` struct normalization in `backend/src/tags/parser.rs`, including UTF-8 handling and invalid token warnings.
+- [X] T110 Implement tag parser + `Tag` struct normalization in `backend/src/tags/parser.rs`, including UTF-8 handling and invalid token warnings.
 - [ ] T111 Wire cache-backed search service in `backend/src/services/search.rs` applying `TagFilter` + inverted index.
 - [ ] T112 Expose `GET /api/v1/media` handler in `backend/src/api/search.rs` with query validation + error codes.
 - [ ] T113 Generate thumbnails on-demand/cache path management in `backend/src/media/thumbnails.rs`, returning CDN-safe URLs.

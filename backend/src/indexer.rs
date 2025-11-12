@@ -11,6 +11,8 @@ use tokio::{sync::mpsc, task::JoinHandle, time};
 use tracing::instrument;
 use walkdir::{DirEntry, WalkDir};
 
+use crate::tags::{Tag, TagKind, parse_filename_tokens};
+
 /// Representation of a media file discovered on disk.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -18,7 +20,7 @@ pub struct MediaFile {
     pub id: String,
     pub relative_path: String,
     pub media_type: MediaType,
-    pub tags: Vec<String>,
+    pub tags: Vec<Tag>,
     pub attributes: HashMap<String, String>,
     pub filesize: u64,
     pub dimensions: Option<Dimensions>,
@@ -222,6 +224,20 @@ fn build_media_file(
     let metadata = entry.metadata().context("failed to read metadata")?;
     let filesize = metadata.len();
     let media_type = detect_media_type(entry.path());
+    let stem = entry
+        .path()
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or_default();
+    let parse_result = parse_filename_tokens(stem);
+    if !parse_result.invalid_tokens.is_empty() {
+        tracing::warn!(
+            path = %rel_display,
+            invalid = ?parse_result.invalid_tokens,
+            "ignored invalid tag tokens"
+        );
+    }
+    let attributes = build_attributes_from_tags(&parse_result.tags);
 
     tracing::info!(path = %rel_display,"scanned media file {}", relative_path);
 
@@ -229,8 +245,8 @@ fn build_media_file(
         id: stable_id(relative),
         relative_path,
         media_type,
-        tags: Vec::new(),
-        attributes: HashMap::new(),
+        tags: parse_result.tags,
+        attributes,
         filesize,
         dimensions: None,
         duration_ms: None,
@@ -270,6 +286,20 @@ fn relative_to_string(path: &Path) -> String {
         normalized = normalized.replace(std::path::MAIN_SEPARATOR, "/");
     }
     normalized
+}
+
+fn build_attributes_from_tags(tags: &[Tag]) -> HashMap<String, String> {
+    let mut attributes = HashMap::new();
+    for tag in tags {
+        if matches!(tag.kind, TagKind::KeyValue) {
+            if let Some(value) = &tag.value {
+                attributes
+                    .entry(tag.name.clone())
+                    .or_insert_with(|| value.clone());
+            }
+        }
+    }
+    attributes
 }
 
 #[cfg(test)]
