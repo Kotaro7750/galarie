@@ -1,18 +1,13 @@
-mod api;
-mod cache;
-mod config;
-mod indexer;
-mod media;
-mod o11y;
-mod routes;
-
 use std::sync::Arc;
 
 use anyhow::Result;
-use cache::CacheStore;
-use config::AppConfig;
-use indexer::{IndexEvent, Indexer, IndexerConfig};
-use routes::AppState;
+use galarie_backend::{
+    cache::CacheStore,
+    config::AppConfig,
+    indexer::{IndexEvent, Indexer, IndexerConfig},
+    o11y,
+    routes::{self, AppState},
+};
 use tokio::sync::RwLock;
 
 #[tokio::main]
