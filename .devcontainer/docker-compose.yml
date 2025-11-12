@@ -16,6 +16,7 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
     ports:
       - "8080:8080"
+      - "5173:5173"
     depends_on:
       - otel-collector
 
