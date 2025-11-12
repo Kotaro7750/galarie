@@ -500,6 +500,7 @@ dependencies = [
  "axum",
  "chrono",
  "clap",
+ "http-body-util",
  "image",
  "opentelemetry",
  "opentelemetry-appender-tracing",

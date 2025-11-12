@@ -1,0 +1,34 @@
+# Git metadata stays local
+.git/
+.gitignore
+
+# Dev tooling and editor cruft
+.devcontainer/
+.codex/
+.serena/
+.tmp/
+.DS_Store
+.idea/
+.vscode/
+
+# Environment and configuration secrets
+.env
+.env.*
+
+# Build outputs and caches
+target/
+**/target/
+frontend/node_modules/
+node_modules/
+frontend/dist/
+frontend/.vite/
+.cache/
+coverage/
+logs/
+
+# Local mounts with user media
+media/
+
+# Do not copy existing Docker configs into the image
+Dockerfile*
+.dockerignore

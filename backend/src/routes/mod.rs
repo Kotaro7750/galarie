@@ -9,7 +9,7 @@ use axum::{
     Json, Router,
     extract::{MatchedPath, State},
     http::StatusCode,
-    response::IntoResponse,
+    middleware,
     routing::{get, post},
 };
 use serde::Serialize;
@@ -18,6 +18,7 @@ use tower_http::trace::{MakeSpan, OnRequest, OnResponse, TraceLayer};
 use tracing::{Instrument, Span, field, instrument};
 
 use crate::{
+    api::{self, ApiResponse, ApiResult},
     cache::{CacheSnapshot, CacheStore},
     config::{AppConfig, LogConfig, OtelConfig},
     indexer::Indexer,
@@ -53,6 +54,8 @@ pub fn router(state: AppState) -> Router {
         .route("/healthz", get(healthz))
         .route("/api/v1/index/rebuild", post(trigger_rebuild))
         .with_state(state)
+        .fallback(api::fallback_handler)
+        .layer(middleware::from_fn(api::ensure_error_envelope))
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(HttpMakeSpan)
@@ -73,20 +76,20 @@ struct HealthResponse {
 }
 
 #[instrument(skip(state))]
-async fn healthz(State(state): State<AppState>) -> impl IntoResponse {
+async fn healthz(State(state): State<AppState>) -> ApiResult<HealthResponse> {
     let snapshot = state.snapshot.read().await;
-    Json(HealthResponse {
+    Ok(Json(HealthResponse {
         status: "ok",
         media_root: state.config.media_root.display().to_string(),
         cache_dir: state.config.cache_dir.display().to_string(),
         uptime_seconds: state.boot_instant.elapsed().as_secs_f64(),
         cache_items: snapshot.media.len(),
         cache_generated_at: snapshot.generated_at.to_rfc3339(),
-    })
+    }))
 }
 
 #[instrument(skip(state))]
-async fn trigger_rebuild(State(state): State<AppState>) -> impl IntoResponse {
+async fn trigger_rebuild(State(state): State<AppState>) -> ApiResponse<serde_json::Value> {
     let cache_store = state.cache_store.clone();
     let snapshot_state = state.snapshot.clone();
     let media_root = state.config.media_root.clone();
@@ -114,10 +117,10 @@ async fn trigger_rebuild(State(state): State<AppState>) -> impl IntoResponse {
         }
     });
 
-    (
+    Ok((
         StatusCode::ACCEPTED,
         Json(serde_json::json!({"status": "queued"})),
-    )
+    ))
 }
 
 #[derive(Clone)]
@@ -190,6 +193,8 @@ mod tests {
         body::Body,
         http::{Method, Request},
     };
+    use http_body_util::BodyExt;
+    use serde_json::Value;
     use std::{fs, os::unix::fs::PermissionsExt, time::Duration};
     use tempfile::tempdir;
     use tokio::time::timeout;
@@ -274,5 +279,63 @@ mod tests {
         assert_eq!(snapshot_state.read().await.media.len(), 0);
 
         fs::set_permissions(cache_dir.path(), fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    #[tokio::test]
+    async fn fallback_returns_standard_error() {
+        let media_root = sample_media_root();
+        let cache_dir = tempdir().unwrap();
+        let config = Arc::new(test_config(media_root, cache_dir.path().to_path_buf()));
+        let cache_store = Arc::new(CacheStore::new(cache_dir.path()));
+        let snapshot_state = Arc::new(RwLock::new(CacheSnapshot::new(Vec::new())));
+
+        let state = AppState::new(config, cache_store, snapshot_state);
+        let app = router(state);
+
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/missing")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let json: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["error"]["code"], "RESOURCE_NOT_FOUND");
+    }
+
+    #[tokio::test]
+    async fn method_not_allowed_returns_standard_error() {
+        let media_root = sample_media_root();
+        let cache_dir = tempdir().unwrap();
+        let config = Arc::new(test_config(media_root, cache_dir.path().to_path_buf()));
+        let cache_store = Arc::new(CacheStore::new(cache_dir.path()));
+        let snapshot_state = Arc::new(RwLock::new(CacheSnapshot::new(Vec::new())));
+
+        let state = AppState::new(config, cache_store, snapshot_state);
+        let app = router(state);
+
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/api/v1/index/rebuild")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let json: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["error"]["code"], "METHOD_NOT_ALLOWED");
     }
 }

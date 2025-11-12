@@ -29,3 +29,4 @@ image = { version = "0.25", default-features = false, features = ["jpeg", "png",
 tempfile = "3.10"
 which = "6.0"
 tower = "0.5"
+http-body-util = "0.1"
