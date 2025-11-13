@@ -1,0 +1,1 @@
+../galarie-media-platform/data-model.md

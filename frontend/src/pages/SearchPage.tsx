@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
   Box,
@@ -11,6 +11,8 @@ import {
   CircularProgress,
   Divider,
   Grid,
+  IconButton,
+  Portal,
   Snackbar,
   Stack,
   TextField,
@@ -18,6 +20,7 @@ import {
   Typography,
 } from '@mui/material'
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded'
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import { useMutation } from '@tanstack/react-query'
 
 import type { MediaSummary } from '../types/media'
@@ -43,6 +46,8 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
   const attributes = filters.attributes
   const [formError, setFormError] = useState<string | null>(null)
   const [toastOpen, setToastOpen] = useState(false)
+  const [hoveredMedia, setHoveredMedia] = useState<MediaSummary | null>(null)
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const searchMutation = useMutation({
     mutationFn: (payload: MediaSearchRequest) => fetchMedia(payload, apiBaseUrl),
@@ -88,6 +93,29 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
   const attributeChips = useMemo(() => Object.entries(attributes), [attributes])
   const fetchedItems = searchMutation.data?.items ?? []
   const totalResults = searchMutation.data?.total ?? 0
+
+  const clearHover = useCallback(() => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current)
+    }
+    hoverTimeoutRef.current = setTimeout(() => setHoveredMedia(null), 120)
+  }, [])
+
+  const applyHover = useCallback((media: MediaSummary | null) => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current)
+      hoverTimeoutRef.current = null
+    }
+    setHoveredMedia(media)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (searchMutation.isError) {
@@ -182,7 +210,12 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
             <Grid container spacing={2}>
               {fetchedItems.map((media) => (
                 <Grid item xs={12} sm={6} md={4} lg={3} key={media.id}>
-                  <MediaCard media={media} apiBaseUrl={apiBaseUrl} />
+                  <MediaCard
+                    media={media}
+                    apiBaseUrl={apiBaseUrl}
+                    onHoverStart={() => applyHover(media)}
+                    onHoverEnd={clearHover}
+                  />
                 </Grid>
               ))}
             </Grid>
@@ -215,6 +248,15 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
           {resolveErrorMessage(searchMutation.error)}
         </Alert>
       </Snackbar>
+      {hoveredMedia && (
+        <MediaPreviewOverlay
+          media={hoveredMedia}
+          apiBaseUrl={apiBaseUrl}
+          onHoverStart={() => applyHover(hoveredMedia)}
+          onHoverEnd={clearHover}
+          onClose={() => setHoveredMedia(null)}
+        />
+      )}
     </Stack>
   )
 }
@@ -222,13 +264,15 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
 type MediaCardProps = {
   media: MediaSummary
   apiBaseUrl: string
+  onHoverStart: () => void
+  onHoverEnd: () => void
 }
 
-function MediaCard({ media, apiBaseUrl }: MediaCardProps) {
+function MediaCard({ media, apiBaseUrl, onHoverStart, onHoverEnd }: MediaCardProps) {
   const thumbnailSrc = resolveThumbnailUrl(media.thumbnailPath, apiBaseUrl)
   const tagNames = media.tags.map((tag) => tag.normalized)
   const inlineStreamUrl = resolveStreamUrl(apiBaseUrl, media.id)
-  const downloadUrl = resolveStreamUrl(apiBaseUrl, media.id, 'attachment')
+const downloadUrl = resolveStreamUrl(apiBaseUrl, media.id, 'attachment')
 
   const openInlinePreview = () => {
     if (typeof window === 'undefined') return
@@ -236,7 +280,12 @@ function MediaCard({ media, apiBaseUrl }: MediaCardProps) {
   }
 
   return (
-    <Card variant="outlined" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Card
+      variant="outlined"
+      sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+      onMouseEnter={onHoverStart}
+      onMouseLeave={onHoverEnd}
+    >
       <CardMedia
         component="img"
         height={180}
@@ -286,6 +335,168 @@ function MediaCard({ media, apiBaseUrl }: MediaCardProps) {
       </CardActions>
     </Card>
   )
+}
+
+type MediaPreviewOverlayProps = {
+  media: MediaSummary | null
+  apiBaseUrl: string
+  onHoverStart: () => void
+  onHoverEnd: () => void
+  onClose: () => void
+}
+
+function MediaPreviewOverlay({
+  media,
+  apiBaseUrl,
+  onHoverStart,
+  onHoverEnd,
+  onClose,
+}: MediaPreviewOverlayProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null)
+
+  if (!media || typeof document === 'undefined') {
+    return null
+  }
+
+  const inlineStreamUrl = resolveStreamUrl(apiBaseUrl, media.id)
+  const downloadUrl = resolveStreamUrl(apiBaseUrl, media.id, 'attachment')
+
+  const handleFullscreen = () => {
+    const node = containerRef.current
+    if (node && 'requestFullscreen' in node) {
+      // @ts-expect-error: requestFullscreen exists in modern browsers
+      node.requestFullscreen?.().catch(() => {
+        /* ignore */
+      })
+    }
+  }
+
+  return (
+    <Portal>
+      <Box
+        onMouseEnter={onHoverStart}
+        onMouseLeave={onHoverEnd}
+        sx={{
+          position: 'fixed',
+          inset: 0,
+          bgcolor: 'rgba(8, 15, 30, 0.85)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: (theme) => theme.zIndex.modal,
+          transition: 'opacity 120ms ease',
+        }}
+      >
+        <Card
+          ref={containerRef}
+          sx={{
+            width: 'min(90vw, 960px)',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+            p: 3,
+          }}
+        >
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Stack spacing={0.5}>
+              <Typography variant="subtitle1" fontWeight={600} noWrap>
+                {media.relativePath}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {media.mediaType.toUpperCase()} · {media.filesize.toLocaleString()} bytes
+              </Typography>
+            </Stack>
+            <IconButton aria-label="Close preview" onClick={onClose} size="small">
+              <CloseRoundedIcon />
+            </IconButton>
+          </Stack>
+
+          <Box
+            sx={{
+              flexGrow: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: { xs: 260, md: 380 },
+              bgcolor: 'grey.900',
+              borderRadius: 2,
+              overflow: 'hidden',
+            }}
+          >
+            {renderPreviewMedia(media, inlineStreamUrl)}
+          </Box>
+
+          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="flex-end" spacing={1.5}>
+            <Button onClick={handleFullscreen} variant="outlined">
+              Fullscreen
+            </Button>
+            <Button component="a" href={inlineStreamUrl} target="_blank" rel="noopener noreferrer">
+              Open
+            </Button>
+            <Button
+              component="a"
+              href={downloadUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="contained"
+            >
+              Download
+            </Button>
+          </Stack>
+        </Card>
+      </Box>
+    </Portal>
+  )
+}
+
+function renderPreviewMedia(media: MediaSummary, streamUrl: string) {
+  const commonStyles = {
+    maxWidth: '100%',
+    maxHeight: '80vh',
+  }
+
+  switch (media.mediaType) {
+    case 'image':
+    case 'gif':
+      return (
+        <Box
+          component="img"
+          src={streamUrl}
+          alt={media.relativePath}
+          sx={{ ...commonStyles, objectFit: 'contain' }}
+        />
+      )
+    case 'video':
+      return (
+        <Box component="video" src={streamUrl} controls autoPlay muted loop sx={commonStyles} />
+      )
+    case 'audio':
+      return (
+        <Stack spacing={2} alignItems="center" width="100%">
+          <Typography variant="body2" color="text.secondary">
+            Audio preview
+          </Typography>
+          <audio src={streamUrl} controls autoPlay style={{ width: '100%' }} />
+        </Stack>
+      )
+    case 'pdf':
+      return (
+        <Box
+          component="iframe"
+          src={streamUrl}
+          sx={{ border: 0, width: '100%', height: '70vh', bgcolor: 'white' }}
+        />
+      )
+    default:
+      return (
+        <Stack spacing={2} alignItems="center">
+          <Typography color="text.secondary">
+            Preview not available. Use Open or Download to view this media.
+          </Typography>
+        </Stack>
+      )
+  }
 }
 
 function resolveErrorMessage(error: unknown) {
