@@ -3,7 +3,7 @@ use axum::{
     body::Body,
     http::{
         Method, Request, StatusCode,
-        header::{ACCEPT_RANGES, CONTENT_RANGE},
+        header::{ACCEPT_RANGES, CONTENT_DISPOSITION, CONTENT_RANGE},
     },
 };
 
@@ -27,6 +27,21 @@ async fn stream_supports_partial_content_requests() {
 
     let bytes = response_bytes(response).await;
     assert_eq!(bytes.len(), 12);
+}
+
+#[tokio::test]
+async fn stream_defaults_to_inline_disposition() {
+    let app = StubApp::new();
+    let request = Request::builder()
+        .method(Method::GET)
+        .uri("/api/v1/media/vid-001/stream")
+        .body(Body::empty())
+        .expect("request");
+
+    let response = app.request(request).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let disposition = response.headers().get(CONTENT_DISPOSITION).unwrap();
+    assert_eq!(disposition, "inline; filename=\"vid-001\"");
 }
 
 #[tokio::test]

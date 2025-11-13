@@ -7,7 +7,10 @@ use axum::{
     },
     http::{
         HeaderMap, HeaderValue, Request, StatusCode,
-        header::{ACCEPT_RANGES, CACHE_CONTROL, CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE, ETAG},
+        header::{
+            ACCEPT_RANGES, CACHE_CONTROL, CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_RANGE,
+            CONTENT_TYPE, ETAG,
+        },
     },
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -195,12 +198,19 @@ async fn media_stream(
         );
     }
 
+    let disposition = query.disposition.as_deref().unwrap_or("inline");
+    let content_disposition = format!("{disposition}; filename=\"{id}\"");
+
     let mut builder = Response::builder()
         .header(
             CONTENT_TYPE,
             HeaderValue::from_static("application/octet-stream"),
         )
-        .header(ACCEPT_RANGES, HeaderValue::from_static("bytes"));
+        .header(ACCEPT_RANGES, HeaderValue::from_static("bytes"))
+        .header(
+            CONTENT_DISPOSITION,
+            HeaderValue::from_str(&content_disposition).unwrap(),
+        );
 
     if headers.contains_key("Range") {
         let body = Bytes::from_static(b"partial-byts");
