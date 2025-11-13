@@ -1,7 +1,7 @@
-use super::support::{response_bytes, response_json, StubApp};
+use super::support::{StubApp, response_bytes, response_json};
 use axum::{
     body::Body,
-    http::{header::CONTENT_TYPE, Method, Request, StatusCode},
+    http::{Method, Request, StatusCode, header::CONTENT_TYPE},
 };
 
 #[tokio::test]
@@ -15,10 +15,7 @@ async fn thumbnail_returns_binary_payload_with_contract_headers() {
 
     let response = app.request(request).await;
     assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        "image/png"
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "image/png");
     assert!(response.headers().get("ETag").is_some());
 
     let bytes = response_bytes(response).await;

@@ -1,25 +1,23 @@
 use axum::{
+    Router,
     body::Body,
     extract::{
-        rejection::{JsonRejection, PathRejection, QueryRejection},
         Json, Path, Query,
+        rejection::{JsonRejection, PathRejection, QueryRejection},
     },
     http::{
-        header::{
-            ACCEPT_RANGES, CACHE_CONTROL, CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE, ETAG,
-        },
         HeaderMap, HeaderValue, Request, StatusCode,
+        header::{ACCEPT_RANGES, CACHE_CONTROL, CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE, ETAG},
     },
     response::{IntoResponse, Response},
     routing::{get, post},
-    Router,
 };
 use bytes::Bytes;
 use http_body_util::BodyExt;
 use serde::Deserialize;
-use serde_json::{json, Value};
-use tower::ServiceExt;
+use serde_json::{Value, json};
 use std::collections::HashMap;
+use tower::ServiceExt;
 
 #[derive(Clone)]
 pub struct StubApp {
@@ -158,7 +156,10 @@ async fn media_thumbnail(
         .status(StatusCode::OK)
         .header(CONTENT_TYPE, HeaderValue::from_static("image/png"))
         .header(ETAG, HeaderValue::from_static("\"stub-thumb-etag\""))
-        .header(CACHE_CONTROL, HeaderValue::from_static("public, max-age=3600"))
+        .header(
+            CACHE_CONTROL,
+            HeaderValue::from_static("public, max-age=3600"),
+        )
         .body(Body::from(Bytes::from_static(b"\x89PNG\r\nstub-data")))
         .expect("valid thumbnail response");
 
@@ -195,37 +196,37 @@ async fn media_stream(
     }
 
     let mut builder = Response::builder()
-        .header(CONTENT_TYPE, HeaderValue::from_static("application/octet-stream"))
+        .header(
+            CONTENT_TYPE,
+            HeaderValue::from_static("application/octet-stream"),
+        )
         .header(ACCEPT_RANGES, HeaderValue::from_static("bytes"));
 
     if headers.contains_key("Range") {
         let body = Bytes::from_static(b"partial-byts");
         builder = builder
             .status(StatusCode::PARTIAL_CONTENT)
-            .header(
-                CONTENT_RANGE,
-                HeaderValue::from_static("bytes 0-11/12"),
-            )
+            .header(CONTENT_RANGE, HeaderValue::from_static("bytes 0-11/12"))
             .header(
                 CONTENT_LENGTH,
                 HeaderValue::from_str(&body.len().to_string()).unwrap(),
             );
-        builder.body(Body::from(body)).expect("partial stream response")
+        builder
+            .body(Body::from(body))
+            .expect("partial stream response")
     } else {
         let body = Bytes::from_static(b"full-response");
-        builder = builder
-            .status(StatusCode::OK)
-            .header(
-                CONTENT_LENGTH,
-                HeaderValue::from_str(&body.len().to_string()).unwrap(),
-            );
-        builder.body(Body::from(body)).expect("full stream response")
+        builder = builder.status(StatusCode::OK).header(
+            CONTENT_LENGTH,
+            HeaderValue::from_str(&body.len().to_string()).unwrap(),
+        );
+        builder
+            .body(Body::from(body))
+            .expect("full stream response")
     }
 }
 
-async fn index_rebuild(
-    payload: Result<Json<IndexRebuildRequest>, JsonRejection>,
-) -> Response {
+async fn index_rebuild(payload: Result<Json<IndexRebuildRequest>, JsonRejection>) -> Response {
     let Json(payload) = match payload {
         Ok(value) => value,
         Err(_) => return validation_failed("invalid JSON payload"),
@@ -241,22 +242,18 @@ async fn index_rebuild(
 }
 
 async fn not_found_handler() -> Response {
-    contract_error(StatusCode::NOT_FOUND, "RESOURCE_NOT_FOUND", "route not found")
-}
-
-fn validation_failed(message: impl Into<String>) -> Response {
     contract_error(
-        StatusCode::BAD_REQUEST,
-        "VALIDATION_FAILED",
-        message,
+        StatusCode::NOT_FOUND,
+        "RESOURCE_NOT_FOUND",
+        "route not found",
     )
 }
 
-fn contract_error(
-    status: StatusCode,
-    code: &'static str,
-    message: impl Into<String>,
-) -> Response {
+fn validation_failed(message: impl Into<String>) -> Response {
+    contract_error(StatusCode::BAD_REQUEST, "VALIDATION_FAILED", message)
+}
+
+fn contract_error(status: StatusCode, code: &'static str, message: impl Into<String>) -> Response {
     let payload = json!({
         "error": {
             "code": code,
@@ -307,10 +304,7 @@ struct StubMedia {
 
 impl SearchQuery {
     fn required_tags(&self) -> Vec<String> {
-        self.tags
-            .as_deref()
-            .map(parse_csv)
-            .unwrap_or_default()
+        self.tags.as_deref().map(parse_csv).unwrap_or_default()
     }
 
     fn attribute_filters(&self) -> HashMap<String, Vec<String>> {
@@ -331,11 +325,7 @@ impl SearchQuery {
 }
 
 impl StubMedia {
-    fn matches(
-        &self,
-        tags: &[String],
-        attributes: &HashMap<String, Vec<String>>,
-    ) -> bool {
+    fn matches(&self, tags: &[String], attributes: &HashMap<String, Vec<String>>) -> bool {
         for tag in tags {
             if !self
                 .tags

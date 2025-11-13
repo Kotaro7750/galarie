@@ -130,7 +130,7 @@ mod tests {
             filesize: 42,
             dimensions: None,
             duration_ms: None,
-            thumbnail_path: Some("/api/v1/media/abc/thumbnail".into()),
+            thumbnail_path: Some("/media/abc/thumbnail".into()),
             hash: None,
             indexed_at: Utc::now(),
         }

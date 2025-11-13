@@ -252,7 +252,7 @@ fn build_media_file(
         filesize,
         dimensions: None,
         duration_ms: None,
-        thumbnail_path: Some(format!("/api/v1/media/{media_id}/thumbnail")),
+        thumbnail_path: Some(format!("/media/{media_id}/thumbnail")),
         hash: None,
         indexed_at,
     })

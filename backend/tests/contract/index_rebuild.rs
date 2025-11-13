@@ -1,4 +1,4 @@
-use super::support::{response_json, StubApp};
+use super::support::{StubApp, response_json};
 use axum::{
     body::Body,
     http::{Method, Request, StatusCode},

@@ -3,6 +3,7 @@ use std::{
     path::PathBuf,
     sync::Arc,
     time::{Duration, Instant},
+    vec::Vec,
 };
 
 use axum::{
@@ -52,11 +53,7 @@ async fn cache_miss_rebuilds_and_search_responds_under_one_second() {
         .body(Body::empty())
         .expect("request");
 
-    let response = app
-        .clone()
-        .oneshot(request)
-        .await
-        .expect("router response");
+    let response = app.clone().oneshot(request).await.expect("router response");
     assert_eq!(
         response.status(),
         StatusCode::OK,
@@ -88,5 +85,6 @@ fn test_config(media_root: PathBuf, cache_dir: PathBuf) -> AppConfig {
         log: LogConfig {
             level: "info".into(),
         },
+        cors_allowed_origins: Vec::new(),
     }
 }

@@ -1,9 +1,9 @@
-use super::support::{response_bytes, response_json, StubApp};
+use super::support::{StubApp, response_bytes, response_json};
 use axum::{
     body::Body,
     http::{
-        header::{ACCEPT_RANGES, CONTENT_RANGE},
         Method, Request, StatusCode,
+        header::{ACCEPT_RANGES, CONTENT_RANGE},
     },
 };
 
@@ -19,10 +19,7 @@ async fn stream_supports_partial_content_requests() {
 
     let response = app.request(request).await;
     assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
-    assert_eq!(
-        response.headers().get(ACCEPT_RANGES).unwrap(),
-        "bytes"
-    );
+    assert_eq!(response.headers().get(ACCEPT_RANGES).unwrap(), "bytes");
     assert_eq!(
         response.headers().get(CONTENT_RANGE).unwrap(),
         "bytes 0-11/12"

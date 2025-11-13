@@ -112,7 +112,7 @@ mod tests {
             filesize: 0,
             dimensions: None,
             duration_ms: None,
-            thumbnail_path: Some("/api/v1/media/sample/thumbnail".into()),
+            thumbnail_path: Some("/media/sample/thumbnail".into()),
             hash: None,
             indexed_at: Utc::now(),
         };
@@ -145,7 +145,7 @@ mod tests {
                 filesize: 0,
                 dimensions: None,
                 duration_ms: None,
-                thumbnail_path: Some("/api/v1/media/sample/thumbnail".into()),
+                thumbnail_path: Some("/media/sample/thumbnail".into()),
                 hash: None,
                 indexed_at: Utc::now(),
             },

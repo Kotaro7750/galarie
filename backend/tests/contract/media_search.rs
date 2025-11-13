@@ -1,4 +1,4 @@
-use super::support::{response_json, StubApp};
+use super::support::{StubApp, response_json};
 use axum::{
     body::Body,
     http::{Method, Request, StatusCode},
@@ -18,7 +18,11 @@ async fn search_applies_and_semantics_for_tags_and_attributes() {
 
     let json = response_json(response).await;
     let items = json["items"].as_array().expect("items array");
-    assert_eq!(items.len(), 1, "AND filters should narrow to a single match");
+    assert_eq!(
+        items.len(),
+        1,
+        "AND filters should narrow to a single match"
+    );
     assert_eq!(items[0]["id"], "img-001");
     assert_eq!(json["total"], 1);
 }
