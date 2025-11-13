@@ -20,7 +20,7 @@ use tower_http::{
 use tracing::{Instrument, Span, field, instrument};
 
 use crate::{
-    api::{self, ApiResponse, ApiResult, search, thumbnails},
+    api::{self, ApiResponse, ApiResult, search, stream, thumbnails},
     cache::{CacheSnapshot, CacheStore},
     config::AppConfig,
     indexer::Indexer,
@@ -61,6 +61,7 @@ pub fn router(state: AppState) -> Router {
             "/api/v1/media/{id}/thumbnail",
             get(thumbnails::media_thumbnail),
         )
+        .route("/api/v1/media/{id}/stream", get(stream::media_stream))
         .route("/api/v1/index/rebuild", post(trigger_rebuild))
         .with_state(state)
         .layer(cors)

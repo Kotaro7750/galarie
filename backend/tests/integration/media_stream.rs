@@ -25,7 +25,6 @@ use tokio::{fs, sync::RwLock};
 use tower::ServiceExt;
 
 #[tokio::test]
-#[ignore = "stream endpoint not implemented yet"]
 async fn stream_returns_original_bytes_with_headers() {
     let ctx = StreamTestContext::new(MediaType::Image).await;
 
@@ -71,7 +70,6 @@ async fn stream_returns_original_bytes_with_headers() {
 }
 
 #[tokio::test]
-#[ignore = "stream endpoint not implemented yet"]
 async fn missing_media_returns_not_found() {
     let ctx = StreamTestContext::new(MediaType::Image).await;
     let request = Request::builder()

@@ -22,6 +22,7 @@ use tokio::{
     io::{AsyncReadExt, AsyncSeekExt},
 };
 use tokio_util::io::ReaderStream;
+use tracing::{info, instrument};
 
 use crate::{
     api::{ApiError, ErrorCode},
@@ -35,6 +36,7 @@ pub struct StreamParams {
     pub disposition: Option<String>,
 }
 
+#[instrument(skip(state, headers), fields(media.id = %media_id))]
 pub async fn media_stream(
     PathParam(media_id): PathParam<String>,
     Query(params): Query<StreamParams>,
@@ -112,9 +114,20 @@ pub async fn media_stream(
         .header(CONTENT_LENGTH, body_length.to_string())
         .header(ETAG, etag);
 
-    if let StreamRange::Partial { start, end } = range {
-        response = response.header(CONTENT_RANGE, format!("bytes {start}-{end}/{file_size}"));
-    }
+    let range_desc = match range {
+        StreamRange::Full => "full".to_string(),
+        StreamRange::Partial { start, end } => {
+            response = response.header(CONTENT_RANGE, format!("bytes {start}-{end}/{file_size}"));
+            format!("{start}-{end}")
+        }
+    };
+
+    info!(
+        media.id = %media.id,
+        http.response.status_code = %status,
+        stream.bytes = body_length,
+        stream.range = range_desc.as_str(),
+    );
 
     response
         .body(body_stream)
