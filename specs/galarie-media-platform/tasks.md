@@ -67,7 +67,7 @@ description: "Task list for Galarie media platform core feature"
 - [X] T115 [P] Add SWR/TanStack Query data fetching service (`frontend/src/services/mediaClient.ts`) with error toasts + retry.
 - [X] T116 Implement state persistence for search filters via `sessionStorage` (`frontend/src/hooks/usePersistedFilters.ts`).
 - [ ] T117 Instrument search + streaming tracing/logging (span attributes: tags count, cache hit, bytes served, range info) and expose toggle to disable instrumentation for rollback.
-- [ ] T118 Implement backend streaming handler (`backend/src/api/stream.rs`) that validates `disposition`, parses Range headers, detects MIME type, and streams from the media root.
+- [X] T118 Implement backend streaming handler (`backend/src/api/stream.rs`) that validates `disposition`, parses Range headers, detects MIME type, and streams from the media root.
 - [ ] T119 Wire `/api/v1/media/{id}/stream` into the router with path traversal guards, telemetry counters, and cache-friendly headers (ETag, Accept-Ranges).
 - [ ] T120 Update frontend media grid/detail components to open the streaming endpoint (inline playback/download) so US1 users can view originals immediately after search.
 

@@ -6,12 +6,12 @@ use std::{
 };
 
 use axum::{
+    Router,
     body::Body,
     http::{
-        header::{ACCEPT_RANGES, CONTENT_TYPE, ETAG},
         Method, Request, StatusCode,
+        header::{ACCEPT_RANGES, CONTENT_TYPE, ETAG},
     },
-    Router,
 };
 use galarie_backend::{
     cache::CacheStore,
@@ -89,8 +89,7 @@ async fn missing_media_returns_not_found() {
 
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
     let body = response.into_body().collect().await.expect("body");
-    let json: serde_json::Value =
-        serde_json::from_slice(&body.to_bytes()).expect("json payload");
+    let json: serde_json::Value = serde_json::from_slice(&body.to_bytes()).expect("json payload");
     assert_eq!(json["error"]["code"], "RESOURCE_NOT_FOUND");
     assert!(
         json["error"]["message"]
