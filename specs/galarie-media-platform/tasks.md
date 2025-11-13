@@ -54,6 +54,8 @@ description: "Task list for Galarie media platform core feature"
 - [X] T101 [P][US1] Contract test `backend/tests/contract/media_search.rs` verifying AND semantics, pagination, and error cases.
 - [X] T102 [US1] Integration test `backend/tests/integration/search_cache.rs` ensures cache miss rebuilds and responds ≤1s for sample dataset.
 - [X] T103 [P][US1] Frontend unit tests (Vitest) for search form logic + tag filter parsing (`frontend/src/hooks/useTagFilters.test.ts`).
+- [ ] T104 [P][US1] Contract test `backend/tests/contract/media_stream.rs` covering Range responses, inline disposition defaults, and validation errors.
+- [ ] T105 [US1] Integration test `backend/tests/integration/media_stream.rs` ensuring real files stream with correct MIME/ETag/404 handling.
 
 ### Implementation
 
@@ -64,7 +66,10 @@ description: "Task list for Galarie media platform core feature"
 - [X] T114 [P] Build React search UI (`frontend/src/pages/SearchPage.tsx`) with tag filter inputs, multi-value attribute chips, results grid, and loading state.
 - [X] T115 [P] Add SWR/TanStack Query data fetching service (`frontend/src/services/mediaClient.ts`) with error toasts + retry.
 - [X] T116 Implement state persistence for search filters via `sessionStorage` (`frontend/src/hooks/usePersistedFilters.ts`).
-- [ ] T117 Instrument search tracing/logging (span attributes: tags count, cache hit, duration) and expose toggle to disable instrumentation for rollback.
+- [ ] T117 Instrument search + streaming tracing/logging (span attributes: tags count, cache hit, bytes served, range info) and expose toggle to disable instrumentation for rollback.
+- [ ] T118 Implement backend streaming handler (`backend/src/api/stream.rs`) that validates `disposition`, parses Range headers, detects MIME type, and streams from the media root.
+- [ ] T119 Wire `/api/v1/media/{id}/stream` into the router with path traversal guards, telemetry counters, and cache-friendly headers (ETag, Accept-Ranges).
+- [ ] T120 Update frontend media grid/detail components to open the streaming endpoint (inline playback/download) so US1 users can view originals immediately after search.
 
 **Rollback**: Removing `frontend` search components + disabling `GET /api/v1/media` route returns system to baseline; cache JSON can be deleted safely.
 
@@ -97,13 +102,13 @@ description: "Task list for Galarie media platform core feature"
 
 - [ ] T301 [P][US3] Frontend unit test for video loop state machine (`frontend/src/hooks/useVideoLoop.test.ts`).
 - [ ] T302 [US3] Playwright scenario verifying A/B markers, loop toggle, and state persistence within session.
-- [ ] T303 [US3] Backend integration test for `GET /api/v1/media/{id}/stream` ensuring Range requests + appropriate headers for video mime types.
+- [ ] T303 [US3] Telemetry test (contract/integration) ensuring video loop events emit spans/logs with mediaId + marker metadata.
 
 ### Implementation
 
 - [ ] T310 Implement video player component `frontend/src/components/VideoPlayer.tsx` with controls for loop, A/B set/clear, and fullscreen support.
 - [ ] T311 Add hook `useVideoLoop.ts` managing state, storing markers per mediaId in memory/session storage.
-- [ ] T312 Update backend streaming route to emit telemetry spans for playback sessions (bytes served, duration) and guard against path traversal.
+- [ ] T312 Implement telemetry/logging pipeline for video loop interactions (frontend event emitter or log endpoint) feeding OpenTelemetry spans/metrics.
 - [ ] T313 Provide UI affordance to exit video mode without resetting search/favorites (shared state remains intact).
 - [ ] T314 Document keyboard shortcuts (e.g., “A” sets marker A) in UI tooltip.
 

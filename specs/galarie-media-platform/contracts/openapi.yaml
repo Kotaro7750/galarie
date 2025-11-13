@@ -95,10 +95,24 @@ paths:
         '200':
           description: Full media payload
           content:
+            image/jpeg: {}
+            image/png: {}
+            image/gif: {}
+            video/mp4: {}
+            video/webm: {}
+            audio/mpeg: {}
+            application/pdf: {}
             application/octet-stream: {}
         '206':
           description: Partial content (Range support)
           content:
+            image/jpeg: {}
+            image/png: {}
+            image/gif: {}
+            video/mp4: {}
+            video/webm: {}
+            audio/mpeg: {}
+            application/pdf: {}
             application/octet-stream: {}
         '404':
           $ref: '#/components/responses/NotFound'

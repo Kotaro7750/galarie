@@ -10,7 +10,9 @@
 
 ### User Story 1 - Tag-Based Thumbnail Search (Priority: P1)
 
-ローカルファイルに付与したタグ（`tag` と `key:value`）を使って AND 条件検索し、数千件規模でも 1 秒以内に結果サムネイルを確認できるようにする。
+ローカルファイルに付与したタグ（`tag` と `key:value`）を使って AND 条件検索し、数千件規模でも 1 秒以内に結果サムネイルを確認できるようにする。検索結果を閲覧するだけでなく、その場で実ファイルをストリーミング再生できることまでを MVP（US1）の完了条件に含める。
+
+**Scope Update 2025-11-13**: US1 で `GET /api/v1/media/{id}/stream` を提供し、Range リクエスト対応の実ファイル配信を保証する。サムネイルだけでは価値が薄く、動画・画像を即座に開けないと MVP として成立しないため。
 
 **Why this priority**: タグ検索こそが全機能の入口であり、ここが高速・直感的でなければ後続の体験（お気に入り、視聴）が成立しないため。
 
@@ -23,6 +25,7 @@
 1. **Given** キャッシュが最新の状態, **When** ユーザーが複数タグ条件を入力, **Then** 1 秒以内にマッチしたファイルのサムネイルがグリッド表示され種類が区別できる。
 2. **Given** key:value タグが付与されたファイル, **When** ユーザーがキーと値を複数指定, **Then** 完全一致したファイルのみが検索結果に含まれる。
 3. **Given** ブラウザセッション中, **When** ユーザーが検索条件を変更, **Then** 変更内容が即座に反映され検索状態はセッション終了まで保持される。
+4. **Given** サムネイルグリッドに動画/画像が表示されている, **When** ユーザーが任意のメディアを開く, **Then** フロントエンドは `GET /api/v1/media/{id}/stream` を呼び出し 200/206 応答で実ファイルを取得できる（Range 対応, `disposition=inline` 既定）。
 
 ---
 
@@ -81,6 +84,7 @@
 - **FR-006**: System MUST offer a video player with loop toggle and A-B repeat controls implemented entirely in the frontend, while the backend serves media streams.
 - **FR-007**: System MUST export OpenTelemetry traces, metrics, and logs for indexing, search, slideshow, and video playback flows.
 - **FR-008**: System MUST support full-screen and pinch-to-zoom gestures during viewing.
+- **FR-009**: System MUST expose `GET /api/v1/media/{id}/stream` as part of US1, supporting Range requests, inline disposition by default, and MIME detection so that search results can launch immediate playback/viewing without additional user stories.
 
 ### Key Entities
 
@@ -110,6 +114,7 @@
   - **Purpose**: Stream the original media file for viewing/playing; supports Range requests.
   - **Request Schema**: Path parameter `id`, optional query `disposition=inline`.
   - **Response Schema**: Binary data with appropriate `Content-Type`; supports 206 Partial Content.
+  - **User Story Alignment**: Required for US1 so that search results can be consumed immediately after introduction of thumbnails.
   - **Versioning**: `/api/v1`.
   - **Quickstart Step**: “Stream media file” example.
   - **Required Tests**: Backend integration tests validating Range support, MIME negotiation, and error handling.

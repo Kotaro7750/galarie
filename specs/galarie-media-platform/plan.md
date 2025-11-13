@@ -6,7 +6,7 @@
 
 ## Summary
 
-Deliver a DB-free multimedia viewer that mounts the local filesystem in a Kubernetes pod, parses tag metadata from filenames, exposes REST APIs for search/streaming, and serves a React SPA enabling advanced tag filters, favorites-driven slideshows, and video loop controls with OpenTelemetry instrumentation.
+Deliver a DB-free multimedia viewer that mounts the local filesystem in a Kubernetes pod, parses tag metadata from filenames, exposes REST APIs for search/streaming, and serves a React SPA enabling advanced tag filters, favorites-driven slideshows, and video loop controls with OpenTelemetry instrumentation. **2025-11-13 Scope Update**: US1 now requires the media streaming API (`GET /api/v1/media/{id}/stream`) so thumbnails immediately open playable content; later stories build on this baseline (favorites + A/B loop controls).
 
 ## Technical Context
 
