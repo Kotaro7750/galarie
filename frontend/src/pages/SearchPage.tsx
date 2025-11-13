@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   Card,
+  CardActions,
   CardContent,
   CardMedia,
   Chip,
@@ -23,6 +24,7 @@ import type { MediaSummary } from '../types/media'
 import { fetchMedia } from '../services/mediaClient'
 import type { MediaSearchRequest } from '../services/mediaClient'
 import { usePersistedFilters } from '../hooks/usePersistedFilters'
+import { resolveStreamUrl, resolveThumbnailUrl } from '../utils/mediaUrls'
 
 type AttributeMap = Record<string, string[]>
 
@@ -223,8 +225,15 @@ type MediaCardProps = {
 }
 
 function MediaCard({ media, apiBaseUrl }: MediaCardProps) {
-  const thumbnailSrc = resolveThumbnail(media.thumbnailPath, apiBaseUrl)
+  const thumbnailSrc = resolveThumbnailUrl(media.thumbnailPath, apiBaseUrl)
   const tagNames = media.tags.map((tag) => tag.normalized)
+  const inlineStreamUrl = resolveStreamUrl(apiBaseUrl, media.id)
+  const downloadUrl = resolveStreamUrl(apiBaseUrl, media.id, 'attachment')
+
+  const openInlinePreview = () => {
+    if (typeof window === 'undefined') return
+    window.open(inlineStreamUrl, '_blank', 'noopener,noreferrer')
+  }
 
   return (
     <Card variant="outlined" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -233,6 +242,8 @@ function MediaCard({ media, apiBaseUrl }: MediaCardProps) {
         height={180}
         image={thumbnailSrc}
         alt={media.relativePath}
+        onClick={openInlinePreview}
+        sx={{ cursor: 'pointer' }}
         onError={(event) => {
           ;(event.target as HTMLImageElement).src = 'https://placehold.co/320x200?text=Media'
         }}
@@ -259,18 +270,22 @@ function MediaCard({ media, apiBaseUrl }: MediaCardProps) {
           </Stack>
         </Stack>
       </CardContent>
+      <CardActions sx={{ justifyContent: 'flex-end', pt: 0 }}>
+        <Button size="small" onClick={openInlinePreview}>
+          Open
+        </Button>
+        <Button
+          size="small"
+          component="a"
+          href={downloadUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Download
+        </Button>
+      </CardActions>
     </Card>
   )
-}
-
-function resolveThumbnail(path: string | null | undefined, apiBaseUrl: string) {
-  if (!path) {
-    return 'https://placehold.co/320x200?text=Media'
-  }
-  if (path.startsWith('http')) {
-    return path
-  }
-  return `${apiBaseUrl}${path}`
 }
 
 function resolveErrorMessage(error: unknown) {
