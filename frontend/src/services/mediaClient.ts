@@ -1,4 +1,4 @@
-import { MediaSummary } from '../types/media'
+import type { MediaSummary } from '../types/media'
 
 export type MediaSearchRequest = {
   tags: string[]

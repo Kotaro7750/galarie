@@ -19,8 +19,9 @@ import {
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded'
 import { useMutation } from '@tanstack/react-query'
 
-import { MediaSummary } from '../types/media'
-import { MediaSearchRequest, fetchMedia } from '../services/mediaClient'
+import type { MediaSummary } from '../types/media'
+import { fetchMedia } from '../services/mediaClient'
+import type { MediaSearchRequest } from '../services/mediaClient'
 import { usePersistedFilters } from '../hooks/usePersistedFilters'
 
 type AttributeMap = Record<string, string[]>
@@ -83,8 +84,8 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
   }
 
   const attributeChips = useMemo(() => Object.entries(attributes), [attributes])
-  const fetchedItems = searchMutation.data?.items ?? SAMPLE_RESULTS
-  const totalResults = searchMutation.data?.total ?? fetchedItems.length
+  const fetchedItems = searchMutation.data?.items ?? []
+  const totalResults = searchMutation.data?.total ?? 0
 
   useEffect(() => {
     if (searchMutation.isError) {

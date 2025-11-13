@@ -1,5 +1,4 @@
 use std::{
-    path::PathBuf,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -8,19 +7,22 @@ use anyhow::Error;
 use axum::{
     Json, Router,
     extract::{MatchedPath, State},
-    http::StatusCode,
+    http::{HeaderValue, StatusCode},
     middleware,
     routing::{get, post},
 };
 use serde::Serialize;
 use tokio::{sync::RwLock, task};
-use tower_http::trace::{MakeSpan, OnRequest, OnResponse, TraceLayer};
+use tower_http::{
+    cors::{AllowOrigin, Any, CorsLayer},
+    trace::{MakeSpan, OnRequest, OnResponse, TraceLayer},
+};
 use tracing::{Instrument, Span, field, instrument};
 
 use crate::{
     api::{self, ApiResponse, ApiResult, search, thumbnails},
     cache::{CacheSnapshot, CacheStore},
-    config::{AppConfig, LogConfig, OtelConfig},
+    config::AppConfig,
     indexer::Indexer,
 };
 
@@ -50,6 +52,8 @@ impl AppState {
 
 /// Build the Axum router with shared layers and routes.
 pub fn router(state: AppState) -> Router {
+    let cors = build_cors_layer(&state.config.cors_allowed_origins);
+
     Router::new()
         .route("/healthz", get(healthz))
         .route("/api/v1/media", get(search::media_search))
@@ -59,6 +63,7 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/api/v1/index/rebuild", post(trigger_rebuild))
         .with_state(state)
+        .layer(cors)
         .fallback(api::fallback_handler)
         .layer(middleware::from_fn(api::ensure_error_envelope))
         .layer(
@@ -67,6 +72,35 @@ pub fn router(state: AppState) -> Router {
                 .on_request(LogOnRequest)
                 .on_response(LogOnResponse),
         )
+}
+
+fn build_cors_layer(origins: &[String]) -> CorsLayer {
+    if origins.is_empty() {
+        return CorsLayer::new()
+            .allow_origin(Any)
+            .allow_methods(Any)
+            .allow_headers(Any);
+    }
+
+    let mut allowed = Vec::new();
+    for origin in origins {
+        match origin.parse::<HeaderValue>() {
+            Ok(value) => allowed.push(value),
+            Err(err) => tracing::warn!(%origin, %err, "invalid cors origin, skipping"),
+        }
+    }
+
+    if allowed.is_empty() {
+        CorsLayer::new()
+            .allow_origin(Any)
+            .allow_methods(Any)
+            .allow_headers(Any)
+    } else {
+        CorsLayer::new()
+            .allow_origin(AllowOrigin::list(allowed))
+            .allow_methods(Any)
+            .allow_headers(Any)
+    }
 }
 
 /// JSON payload returned by `/healthz`.
@@ -200,10 +234,13 @@ mod tests {
     };
     use http_body_util::BodyExt;
     use serde_json::Value;
+    use std::path::PathBuf;
     use std::{fs, os::unix::fs::PermissionsExt, time::Duration};
     use tempfile::tempdir;
     use tokio::time::timeout;
     use tower::ServiceExt;
+
+    use crate::config::{LogConfig, OtelConfig};
 
     fn sample_media_root() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../sample-media")
@@ -222,6 +259,7 @@ mod tests {
             log: LogConfig {
                 level: "info".into(),
             },
+            cors_allowed_origins: Vec::new(),
         }
     }
 

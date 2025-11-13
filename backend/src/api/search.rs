@@ -138,6 +138,7 @@ mod tests {
             log: LogConfig {
                 level: "info".into(),
             },
+            cors_allowed_origins: Vec::new(),
         });
         let cache_store = Arc::new(crate::cache::CacheStore::new(tmp.path()));
         let snapshot = CacheSnapshot::new(media);

@@ -43,6 +43,10 @@ struct CliConfig {
     /// Default log filter when RUST_LOG is not provided
     #[arg(long, env = "LOG_LEVEL", default_value = "info")]
     log_level: String,
+
+    /// Comma-separated list of allowed CORS origins
+    #[arg(long, env = "GALARIE_CORS_ALLOWED_ORIGINS", value_delimiter = ',')]
+    cors_allowed_origins: Vec<String>,
 }
 
 /// Fully validated configuration shared across the application.
@@ -54,6 +58,7 @@ pub struct AppConfig {
     pub otel: OtelConfig,
     pub log: LogConfig,
     pub environment: String,
+    pub cors_allowed_origins: Vec<String>,
 }
 
 /// OpenTelemetry exporter configuration.
@@ -99,6 +104,11 @@ impl TryFrom<CliConfig> for AppConfig {
             log: LogConfig {
                 level: value.log_level,
             },
+            cors_allowed_origins: value
+                .cors_allowed_origins
+                .into_iter()
+                .filter(|origin| !origin.is_empty())
+                .collect(),
         })
     }
 }
