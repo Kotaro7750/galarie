@@ -326,6 +326,16 @@ function MediaPreviewOverlay({
 }: MediaPreviewOverlayProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
   if (!media || typeof document === 'undefined') {
     return null
   }
