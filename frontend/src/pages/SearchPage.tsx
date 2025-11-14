@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
   Box,
@@ -21,12 +21,12 @@ import {
 } from '@mui/material'
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
-import { useMutation } from '@tanstack/react-query'
+import { useInfiniteQuery } from '@tanstack/react-query'
 
 import type { MediaSummary } from '../types/media'
 import { fetchMedia } from '../services/mediaClient'
 import type { MediaSearchRequest } from '../services/mediaClient'
-import { usePersistedFilters } from '../hooks/usePersistedFilters'
+import { usePersistedFilters, type PersistedFilters } from '../hooks/usePersistedFilters'
 import { resolveStreamUrl, resolveThumbnailUrl } from '../utils/mediaUrls'
 
 type AttributeMap = Record<string, string[]>
@@ -37,22 +37,55 @@ type SearchPageProps = {
 
 export function SearchPage({ apiBaseUrl }: SearchPageProps) {
   const { filters, setTags: persistTags, setAttributes: persistAttributes } = usePersistedFilters({
-    tags: 'sunset, coast',
-    attributes: { rating: ['5'] },
+    tags: '',
+    attributes: {},
   })
   const tagInput = filters.tags
   const [attrKey, setAttrKey] = useState('rating')
   const [attrValue, setAttrValue] = useState('5')
   const attributes = filters.attributes
-  const [formError, setFormError] = useState<string | null>(null)
   const [toastOpen, setToastOpen] = useState(false)
   const [previewMedia, setPreviewMedia] = useState<MediaSummary | null>(null)
-
-  const searchMutation = useMutation({
-    mutationFn: (payload: MediaSearchRequest) => fetchMedia(payload, apiBaseUrl),
+  const [appliedFilters, setAppliedFilters] = useState<PersistedFilters>(() => ({
+    tags: filters.tags,
+    attributes: cloneAttributes(filters.attributes),
+  }))
+  const loadMoreRef = useRef<HTMLDivElement | null>(null)
+  const parsedAppliedTags = useMemo(() => parseTagInput(appliedFilters.tags), [appliedFilters.tags])
+  const searchQuery = useInfiniteQuery({
+    queryKey: ['media-search', apiBaseUrl, appliedFilters],
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => {
+      const payload: MediaSearchRequest = {
+        attributes: appliedFilters.attributes,
+        page: pageParam,
+        pageSize: 60,
+      }
+      if (parsedAppliedTags.length > 0) {
+        payload.tags = parsedAppliedTags
+      }
+      return fetchMedia(payload, apiBaseUrl)
+    },
+    getNextPageParam: (lastPage) => {
+      const hasMore = lastPage.page * lastPage.pageSize < lastPage.total
+      return hasMore ? lastPage.page + 1 : undefined
+    },
   })
-
-  const isLoading = searchMutation.isPending
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetching,
+    isFetchingNextPage,
+    isError,
+    error,
+    refetch,
+    status,
+  } = searchQuery
+  const flattenedItems = data?.pages.flatMap((page) => page.items) ?? []
+  const totalResults = data?.pages[0]?.total ?? 0
+  const isInitialLoading = status === 'loading' && !data
+  const isRefreshing = isFetching && !isFetchingNextPage
 
   const handleAddAttribute = () => {
     const key = attrKey.trim().toLowerCase()
@@ -69,35 +102,46 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
   const handleRemoveAttribute = (key: string, value: string) => {
     const values = attributes[key]?.filter((item) => item !== value) ?? []
     if (values.length === 0) {
-      const { [key]: _unused, ...rest } = attributes
-      persistAttributes(rest)
+      const nextAttributes = { ...attributes }
+      delete nextAttributes[key]
+      persistAttributes(nextAttributes)
     } else {
       persistAttributes({ ...attributes, [key]: values })
     }
   }
 
-  const handleSearch = () => {
-    const tags = tagInput
-      .split(',')
-      .map((token) => token.trim().toLowerCase())
-      .filter((token) => token.length > 0)
-    if (tags.length === 0) {
-      setFormError('Enter at least one tag to search')
-      return
-    }
-    setFormError(null)
-    searchMutation.mutate({ tags, attributes, page: 1, pageSize: 60 })
-  }
+  const handleSearch = useCallback(() => {
+    setToastOpen(false)
+    setAppliedFilters({
+      tags: filters.tags,
+      attributes: cloneAttributes(filters.attributes),
+    })
+  }, [filters.attributes, filters.tags])
 
   const attributeChips = useMemo(() => Object.entries(attributes), [attributes])
-  const fetchedItems = searchMutation.data?.items ?? []
-  const totalResults = searchMutation.data?.total ?? 0
 
   useEffect(() => {
-    if (searchMutation.isError) {
-      setToastOpen(true)
+    if (!isError) return
+    const id = window.setTimeout(() => setToastOpen(true), 0)
+    return () => window.clearTimeout(id)
+  }, [isError])
+
+  useEffect(() => {
+    const node = loadMoreRef.current
+    if (!node || !hasNextPage) {
+      return
     }
-  }, [searchMutation.isError])
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage()
+        }
+      },
+      { rootMargin: '200px 0px' },
+    )
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage])
 
   return (
     <Stack spacing={4} sx={{ py: { xs: 4, md: 6 } }}>
@@ -108,11 +152,8 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
               <TextField
                 fullWidth
                 label="Tags (comma separated)"
-                helperText="Every tag is required (AND semantics)"
+                helperText="Optional: AND matches on tag names (simple or KV keys)"
                 value={tagInput}
-                error={Boolean(formError)}
-                FormHelperTextProps={{ sx: formError ? { color: 'error.main' } : undefined }}
-                helperText={formError ?? 'Every tag is required (AND semantics)'}
                 onChange={(event) => persistTags(event.target.value)}
               />
               <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} width={{ xs: '100%', md: 380 }}>
@@ -157,9 +198,9 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
                 color="primary"
                 endIcon={<RefreshRoundedIcon />}
                 onClick={handleSearch}
-                disabled={isLoading}
+                disabled={isRefreshing}
               >
-                {isLoading ? 'Searching…' : 'Run search'}
+                {isRefreshing ? 'Refreshing…' : 'Apply filters'}
               </Button>
             </Stack>
           </Stack>
@@ -172,28 +213,53 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
               Results ({totalResults})
             </Typography>
-            {isLoading && (
+            {(isInitialLoading || isRefreshing) && (
               <Stack direction="row" spacing={1} alignItems="center" color="text.secondary">
                 <CircularProgress size={18} thickness={5} />
-                <Typography variant="body2">Fetching latest media…</Typography>
+                <Typography variant="body2">
+                  {isInitialLoading ? 'Loading media…' : 'Fetching latest media…'}
+                </Typography>
               </Stack>
             )}
           </Stack>
           <Divider sx={{ mb: 2 }} />
-          {fetchedItems.length === 0 ? (
-            <Alert severity="info">No media yet – adjust filters and try again.</Alert>
+          {isInitialLoading ? (
+            <Stack alignItems="center" spacing={2} py={6}>
+              <CircularProgress />
+              <Typography variant="body2" color="text.secondary">
+                Loading catalog…
+              </Typography>
+            </Stack>
+          ) : flattenedItems.length === 0 ? (
+            <Alert severity="info">No media matched. Add filters or try browsing without tags.</Alert>
           ) : (
-            <Grid container spacing={2}>
-              {fetchedItems.map((media) => (
-                <Grid item xs={12} sm={6} md={4} lg={3} key={media.id}>
-                  <MediaCard
-                    media={media}
-                    apiBaseUrl={apiBaseUrl}
-                    onPreview={() => setPreviewMedia(media)}
-                  />
-                </Grid>
-              ))}
-            </Grid>
+            <>
+              <Grid container spacing={2}>
+                {flattenedItems.map((media) => (
+                  <Grid item xs={12} sm={6} md={4} lg={3} key={media.id}>
+                    <MediaCard
+                      media={media}
+                      apiBaseUrl={apiBaseUrl}
+                      onPreview={() => setPreviewMedia(media)}
+                    />
+                  </Grid>
+                ))}
+              </Grid>
+              <Box ref={loadMoreRef} sx={{ height: 8 }} />
+              {isFetchingNextPage && (
+                <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" mt={3}>
+                  <CircularProgress size={18} thickness={5} />
+                  <Typography variant="body2" color="text.secondary">
+                    Loading more…
+                  </Typography>
+                </Stack>
+              )}
+              {!hasNextPage && flattenedItems.length > 0 && (
+                <Typography variant="caption" color="text.secondary" display="block" textAlign="center" mt={3}>
+                  End of results
+                </Typography>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -213,14 +279,14 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
               size="small"
               onClick={() => {
                 setToastOpen(false)
-                handleSearch()
+                refetch()
               }}
             >
               Retry
             </Button>
           }
         >
-          {resolveErrorMessage(searchMutation.error)}
+          {resolveErrorMessage(error)}
         </Alert>
       </Snackbar>
       {previewMedia && (
@@ -489,42 +555,14 @@ function resolveErrorMessage(error: unknown) {
   return 'Unable to load media results'
 }
 
-const SAMPLE_RESULTS: MediaSummary[] = [
-  {
-    id: 'sunset_A',
-    relativePath: 'photos/sunsets/sunset_A.png',
-    mediaType: 'image',
-    filesize: 24567,
-    thumbnailPath: 'https://placehold.co/320x200/4338ca/FFFFFF?text=Sunset',
-    attributes: { rating: '5', location: 'okinawa' },
-    tags: [
-      { rawToken: 'sunset', type: 'simple', name: 'sunset', value: null, normalized: 'sunset' },
-      { rawToken: 'coast', type: 'simple', name: 'coast', value: null, normalized: 'coast' },
-      { rawToken: 'rating-5', type: 'kv', name: 'rating', value: '5', normalized: 'rating=5' },
-    ],
-  },
-  {
-    id: 'macro_B',
-    relativePath: 'macro/macro_leaf.gif',
-    mediaType: 'gif',
-    filesize: 15234,
-    thumbnailPath: 'https://placehold.co/320x200/0f172a/FFFFFF?text=Macro',
-    attributes: { rating: '4', subject: 'nature' },
-    tags: [
-      { rawToken: 'macro', type: 'simple', name: 'macro', value: null, normalized: 'macro' },
-      { rawToken: 'rating-4', type: 'kv', name: 'rating', value: '4', normalized: 'rating=4' },
-    ],
-  },
-  {
-    id: 'video_C',
-    relativePath: 'video/skate_session.mp4',
-    mediaType: 'video',
-    filesize: 80567,
-    thumbnailPath: 'https://placehold.co/320x200/0891b2/FFFFFF?text=Video',
-    attributes: { rating: '3', type: 'skate' },
-    tags: [
-      { rawToken: 'skate', type: 'simple', name: 'skate', value: null, normalized: 'skate' },
-      { rawToken: 'rating-3', type: 'kv', name: 'rating', value: '3', normalized: 'rating=3' },
-    ],
-  },
-]
+function parseTagInput(input: string): string[] {
+  return input
+    .split(',')
+    .map((token) => token.trim().toLowerCase())
+    .filter((token) => token.length > 0)
+}
+
+function cloneAttributes(source: AttributeMap): AttributeMap {
+  const entries = Object.entries(source).map(([key, values]) => [key, [...values]] as const)
+  return Object.fromEntries(entries)
+}
