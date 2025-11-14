@@ -4,7 +4,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tokio::{sync::mpsc, task::JoinHandle, time};
@@ -224,6 +224,9 @@ fn build_media_file(
     let metadata = entry.metadata().context("failed to read metadata")?;
     let filesize = metadata.len();
     let media_type = detect_media_type(entry.path());
+    if matches!(media_type, MediaType::Unknown) {
+        bail!("unsupported media type");
+    }
     let stem = entry
         .path()
         .file_stem()
@@ -347,6 +350,17 @@ mod tests {
         }
 
         handle.abort();
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn scan_once_ignores_unknown_media() -> Result<()> {
+        let dir = tempdir()?;
+        let root = dir.path();
+        std::fs::write(root.join("notes.txt"), b"not media")?;
+
+        let files = Indexer::scan_once(root)?;
+        assert!(files.is_empty(), "unknown media types should be skipped");
         Ok(())
     }
 }

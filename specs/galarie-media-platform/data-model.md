@@ -18,7 +18,7 @@ The system keeps the filesystem as the source of truth and derives in-memory/JSO
 |-------|------|-------------|
 | `id` | string | Stable identifier (e.g., SHA-1 of relative path). |
 | `relativePath` | string | Path relative to mounted root (`media/photos/foo.jpg`). |
-| `mediaType` | enum(`image`,`gif`,`video`,`audio`,`pdf`) | Primary type, extensible for future formats. |
+| `mediaType` | enum(`image`,`gif`,`video`,`audio`,`pdf`) | Primary type, extensible for future formats; unsupported/unknown formats are logged and skipped during indexing. |
 | `tags` | Tag[] | Collection of normalized tags (simple or key/value). |
 | `attributes` | map<string,string> | Convenience map for quick lookup (`rating:5`). |
 | `filesize` | number | Bytes (from FS stat). |

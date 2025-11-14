@@ -80,6 +80,7 @@
 
 - **FR-001**: System MUST parse tag metadata from filenames (`tag`, `key:value`) and cache the results for ≤1s query latency.
 - **FR-002**: System MUST expose a RESTful `GET /api/v1/media` endpoint that executes AND-based tag-name existence queries (simple tags および key-value タグのキー名が対象) and supports multi-value filters for specific key/value tags when the caller supplies attribute conditions; when no filters are provided the endpoint MUST return paginated results for the full catalog.
+- **FR-002.1**: The indexer MUST skip files whose media type cannot be classified (aka `unknown`) and emit warn-level logs/traces identifying the skipped path so unsupported formats never reach the search results.
 - **FR-003**: Users MUST be able to view search results as thumbnails with media-type indicators provided through the search response.
 - **FR-004**: Frontend MUST maintain favorites and slideshow queues client-side (e.g., browser storage) so that state persists until the tab closes without backend storage.
 - **FR-005**: System MUST provide a slideshow player for images/GIFs with configurable interval, fixed order, and infinite loop (client-controlled).
