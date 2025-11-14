@@ -1,4 +1,4 @@
-import { Box, Container, CssBaseline, Stack, ThemeProvider, Typography, createTheme } from '@mui/material'
+import { AppBar, Box, Container, CssBaseline, Stack, ThemeProvider, Toolbar, Typography, createTheme } from '@mui/material'
 import { useMemo } from 'react'
 
 import { getAppEnvironment } from './config/env'
@@ -26,26 +26,44 @@ export default function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', py: { xs: 6, md: 10 } }}>
+      <AppBar
+        position="sticky"
+        color="transparent"
+        elevation={0}
+        sx={{
+          backdropFilter: 'blur(12px)',
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          bgcolor: 'rgba(2, 6, 23, 0.92)',
+        }}
+      >
         <Container maxWidth="lg">
-          <Stack spacing={3}>
-            <Stack spacing={1}>
-              <Typography
-                variant="overline"
-                sx={{ letterSpacing: '.35em', color: 'primary.light', fontWeight: 600 }}
-              >
-                Galarie
-              </Typography>
-              <Typography variant="h3" component="h1" sx={{ fontWeight: 600 }}>
-                Tag-based search
-              </Typography>
-              <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 720 }}>
-                Refine your library with AND-based tags and attribute filters. Thumbnails render from
-                the backend on demand; upcoming tasks will wire this UI to live API data.
-              </Typography>
-            </Stack>
-
-            <SearchPage apiBaseUrl={apiBaseUrl} />
+          <Toolbar
+            disableGutters
+            sx={{
+              minHeight: { xs: 72, md: 82 },
+              py: { xs: 1.5, md: 2 },
+            }}
+          >
+            <Typography variant="h5" sx={{ letterSpacing: '.25em', textTransform: 'uppercase' }}>
+              Galarie
+            </Typography>
+          </Toolbar>
+        </Container>
+      </AppBar>
+      <Box
+        sx={{
+          minHeight: '100vh',
+          bgcolor: 'background.default',
+          py: { xs: 4, md: 8 },
+          mt: { xs: 2, md: 3 },
+        }}
+      >
+        <Container maxWidth="lg">
+          <Stack spacing={4}>
+            <Box component="main" id="search">
+              <SearchPage apiBaseUrl={apiBaseUrl} />
+            </Box>
           </Stack>
         </Container>
       </Box>

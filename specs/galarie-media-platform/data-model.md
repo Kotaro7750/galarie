@@ -75,7 +75,7 @@ The system keeps the filesystem as the source of truth and derives in-memory/JSO
 | Field | Type | Description |
 |-------|------|-------------|
 | `rawToken` | string | Original segment from filename (`travel`, `rating-5`). |
-| `type` | enum(`simple`,`kv`) | Distinguishes plain tags vs key/value. |
+| `type` | enum(`simple`,`keyvalue`) | Distinguishes plain tags vs key/value. |
 | `name` | string | Tag name (e.g., `rating`). |
 | `value` | string? | Value for key/value tags; null for simple tags. |
 | `normalized` | string | Lowercase slug used for indexing (`rating=5`). |

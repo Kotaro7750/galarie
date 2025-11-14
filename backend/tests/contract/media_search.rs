@@ -56,7 +56,7 @@ async fn search_supports_filterless_browsing_with_pagination() {
 }
 
 #[tokio::test]
-async fn search_accepts_kv_tag_name_filters() {
+async fn search_accepts_keyvalue_tag_name_filters() {
     let app = StubApp::new();
     let request = Request::builder()
         .method(Method::GET)

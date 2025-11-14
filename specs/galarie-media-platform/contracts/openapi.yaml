@@ -25,8 +25,8 @@ paths:
           name: tags
           schema:
             type: string
-            description: Comma-separated tag names (simple tags or KV tag keys)
-          description: Tag-name existence filters (AND semantics). Provide when you need to ensure specific simple tags or KVキー名が存在します。省略した場合はフィルタなしのまま page/pageSize で全件を順次取得できます。
+            description: Comma-separated tag names (simple tags or key-value tag keys)
+          description: Tag-name existence filters (AND semantics). Provide when you need to ensure specific simple tags or key-value キー名が存在します。省略した場合はフィルタなしのまま page/pageSize で全件を順次取得できます。
         - in: query
           name: attributes[{key}]
           schema:
@@ -199,7 +199,7 @@ components:
           type: string
         type:
           type: string
-          enum: [simple, kv]
+          enum: [simple, keyvalue]
         name:
           type: string
         value:

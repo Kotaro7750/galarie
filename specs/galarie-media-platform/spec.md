@@ -79,7 +79,7 @@
 ### Functional Requirements
 
 - **FR-001**: System MUST parse tag metadata from filenames (`tag`, `key:value`) and cache the results for ≤1s query latency.
-- **FR-002**: System MUST expose a RESTful `GET /api/v1/media` endpoint that executes AND-based tag-name existence queries (simple tagsおよび KV タグのキー名が対象) and supports multi-value filters for specific key/value tags when the caller supplies attribute conditions; when no filters are provided the endpoint MUST return paginated results for the full catalog.
+- **FR-002**: System MUST expose a RESTful `GET /api/v1/media` endpoint that executes AND-based tag-name existence queries (simple tags および key-value タグのキー名が対象) and supports multi-value filters for specific key/value tags when the caller supplies attribute conditions; when no filters are provided the endpoint MUST return paginated results for the full catalog.
 - **FR-003**: Users MUST be able to view search results as thumbnails with media-type indicators provided through the search response.
 - **FR-004**: Frontend MUST maintain favorites and slideshow queues client-side (e.g., browser storage) so that state persists until the tab closes without backend storage.
 - **FR-005**: System MUST provide a slideshow player for images/GIFs with configurable interval, fixed order, and infinite loop (client-controlled).
@@ -98,7 +98,7 @@
 
 - **Interface Name**: `GET /api/v1/media`
   - **Purpose**: Search media with AND-based tag filters or browse the catalog with infinite scroll.
-  - **Request Schema**: Query parameters `tags=tag1,tag2` (タグ名ベースの存在チェック、simple/KVいずれも対象。省略した場合はフィルタなしで全件がページング返却される)、`attributes[key]=value1,value2` (値一致フィルタ。キーごとに AND、値は OR)、`page`, `pageSize` (page は 1 起点、pageSize は 1〜200)。UI は連番ページを順次取得して無限スクロールを実現する。
+  - **Request Schema**: Query parameters `tags=tag1,tag2` (タグ名ベースの存在チェック、simple/key-value いずれも対象。省略した場合はフィルタなしで全件がページング返却される)、`attributes[key]=value1,value2` (値一致フィルタ。キーごとに AND、値は OR)、`page`, `pageSize` (page は 1 起点、pageSize は 1〜200)。UI は連番ページを順次取得して無限スクロールを実現する。
   - **Response Schema**: `{ items: MediaFile[], total: number, page: number, pageSize: number }` with REST error envelope `{ error: { code, message } }`.
   - **Versioning**: URI namespace `/api/v1`; breaking changes require `/api/v2`.
   - **Quickstart Step**: Quickstart “Search via REST API”.

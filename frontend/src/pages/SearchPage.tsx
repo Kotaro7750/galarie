@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import {
   Alert,
   Box,
@@ -12,6 +12,7 @@ import {
   Divider,
   Grid,
   IconButton,
+  InputAdornment,
   Portal,
   Snackbar,
   Stack,
@@ -19,11 +20,16 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
-import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
+import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded'
+import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
+import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
+import FullscreenRoundedIcon from '@mui/icons-material/FullscreenRounded'
+import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useInfiniteQuery } from '@tanstack/react-query'
 
-import type { MediaSummary } from '../types/media'
+import type { MediaSummary, MediaTag } from '../types/media'
 import { fetchMedia } from '../services/mediaClient'
 import type { MediaSearchRequest } from '../services/mediaClient'
 import { usePersistedFilters, type PersistedFilters } from '../hooks/usePersistedFilters'
@@ -37,21 +43,24 @@ type SearchPageProps = {
 
 export function SearchPage({ apiBaseUrl }: SearchPageProps) {
   const { filters, setTags: persistTags, setAttributes: persistAttributes } = usePersistedFilters({
-    tags: '',
+    tags: [],
     attributes: {},
   })
-  const tagInput = filters.tags
-  const [attrKey, setAttrKey] = useState('rating')
-  const [attrValue, setAttrValue] = useState('5')
+  const confirmedTags = filters.tags
+  const [tagDraft, setTagDraft] = useState('')
+  const [attrValue, setAttrValue] = useState('')
+  const tagInputRef = useRef<HTMLInputElement | null>(null)
+  const tagGuidance = 'Press Enter or comma to confirm plain tags. Provide a value to create key:value filters.'
+  const valueGuidance = 'When a value is present, the left input is treated as the key (camera + nikon => camera:nikon).'
   const attributes = filters.attributes
   const [toastOpen, setToastOpen] = useState(false)
-  const [previewMedia, setPreviewMedia] = useState<MediaSummary | null>(null)
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null)
   const [appliedFilters, setAppliedFilters] = useState<PersistedFilters>(() => ({
-    tags: filters.tags,
+    tags: cloneTags(filters.tags),
     attributes: cloneAttributes(filters.attributes),
   }))
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
-  const parsedAppliedTags = useMemo(() => parseTagInput(appliedFilters.tags), [appliedFilters.tags])
+  const appliedTags = appliedFilters.tags
   const searchQuery = useInfiniteQuery({
     queryKey: ['media-search', apiBaseUrl, appliedFilters],
     initialPageParam: 1,
@@ -61,8 +70,8 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
         page: pageParam,
         pageSize: 60,
       }
-      if (parsedAppliedTags.length > 0) {
-        payload.tags = parsedAppliedTags
+      if (appliedTags.length > 0) {
+        payload.tags = appliedTags
       }
       return fetchMedia(payload, apiBaseUrl)
     },
@@ -83,21 +92,34 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
     status,
   } = searchQuery
   const flattenedItems = data?.pages.flatMap((page) => page.items) ?? []
+  const itemsCount = flattenedItems.length
   const totalResults = data?.pages[0]?.total ?? 0
   const isInitialLoading = status === 'loading' && !data
   const isRefreshing = isFetching && !isFetchingNextPage
+  const previewMedia = typeof previewIndex === 'number' ? flattenedItems[previewIndex] ?? null : null
 
-  const handleAddAttribute = () => {
-    const key = attrKey.trim().toLowerCase()
-    const value = attrValue.trim()
-    if (!key || !value) return
-    const existing = attributes[key] ?? []
-    if (existing.includes(value)) {
+  useEffect(() => {
+    if (previewIndex === null) return
+    if (itemsCount === 0) {
+      setPreviewIndex(null)
       return
     }
-    persistAttributes({ ...attributes, [key]: [...existing, value] })
-    setAttrValue('')
-  }
+    if (!flattenedItems[previewIndex]) {
+      setPreviewIndex((prev) => {
+        if (prev === null) return prev
+        const nextIndex = Math.min(prev, itemsCount - 1)
+        return nextIndex >= 0 ? nextIndex : null
+      })
+    }
+  }, [flattenedItems, itemsCount, previewIndex])
+
+  useEffect(() => {
+    setToastOpen(false)
+    setAppliedFilters({
+      tags: cloneTags(filters.tags),
+      attributes: cloneAttributes(filters.attributes),
+    })
+  }, [filters.attributes, filters.tags])
 
   const handleRemoveAttribute = (key: string, value: string) => {
     const values = attributes[key]?.filter((item) => item !== value) ?? []
@@ -110,15 +132,103 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
     }
   }
 
-  const handleSearch = useCallback(() => {
-    setToastOpen(false)
-    setAppliedFilters({
-      tags: filters.tags,
-      attributes: cloneAttributes(filters.attributes),
-    })
-  }, [filters.attributes, filters.tags])
+  const openPreviewAt = useCallback((index: number) => {
+    setPreviewIndex(index)
+  }, [])
+
+  const closePreview = useCallback(() => setPreviewIndex(null), [])
+
+  const handleNavigatePreview = useCallback(
+    (direction: 'next' | 'previous') => {
+      setPreviewIndex((current) => {
+        if (current === null || itemsCount === 0) {
+          return current
+        }
+        if (direction === 'next') {
+          return (current + 1) % itemsCount
+        }
+        return (current - 1 + itemsCount) % itemsCount
+      })
+    },
+    [itemsCount],
+  )
+
+  const handleCommitTagOrAttribute = useCallback(() => {
+    const normalized = normalizeTag(tagDraft)
+    const value = attrValue.trim()
+    if (!normalized) {
+      setTagDraft('')
+      return
+    }
+    const focusTagInput = () => tagInputRef.current?.focus()
+    if (value) {
+      const existing = attributes[normalized] ?? []
+      if (existing.includes(value)) {
+        setAttrValue('')
+        setTagDraft('')
+        focusTagInput()
+        return
+      }
+      persistAttributes({ ...attributes, [normalized]: [...existing, value] })
+      setAttrValue('')
+      setTagDraft('')
+      focusTagInput()
+      return
+    }
+    if (confirmedTags.includes(normalized)) {
+      setTagDraft('')
+      setAttrValue('')
+      focusTagInput()
+      return
+    }
+    persistTags([...confirmedTags, normalized])
+    setTagDraft('')
+    setAttrValue('')
+    focusTagInput()
+  }, [attrValue, attributes, confirmedTags, persistAttributes, persistTags, tagDraft])
+
+  const handleRemoveTag = useCallback(
+    (tag: string) => {
+      persistTags(confirmedTags.filter((item) => item !== tag))
+    },
+    [confirmedTags, persistTags],
+  )
+
+  const handleAppendTagFromCard = useCallback(
+    (tag: MediaTag) => {
+      if (tag.type === 'keyvalue' && tag.value) {
+        const key = normalizeTag(tag.name)
+        const value = tag.value.trim()
+        if (!key || !value) {
+          return
+        }
+        const existingValues = attributes[key] ?? []
+        if (existingValues.includes(value)) {
+          return
+        }
+        persistAttributes({ ...attributes, [key]: [...existingValues, value] })
+        tagInputRef.current?.focus()
+        return
+      }
+      const normalized = normalizeTag(tag.normalized || tag.name)
+      if (!normalized || confirmedTags.includes(normalized)) {
+        return
+      }
+      persistTags([...confirmedTags, normalized])
+      tagInputRef.current?.focus()
+    },
+    [attributes, confirmedTags, persistAttributes, persistTags],
+  )
+
+  const handleTagKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter' || event.key === ',') {
+      event.preventDefault()
+      handleCommitTagOrAttribute()
+    }
+  }
 
   const attributeChips = useMemo(() => Object.entries(attributes), [attributes])
+  const hasAnyFilterChips = confirmedTags.length > 0 || attributeChips.length > 0
 
   useEffect(() => {
     if (!isError) return
@@ -148,61 +258,109 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
       <Card variant="outlined">
         <CardContent>
           <Stack spacing={3}>
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-              <TextField
-                fullWidth
-                label="Tags (comma separated)"
-                helperText="Optional: AND matches on tag names (simple or KV keys)"
-                value={tagInput}
-                onChange={(event) => persistTags(event.target.value)}
-              />
-              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} width={{ xs: '100%', md: 380 }}>
+            <Stack spacing={2}>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={1}>
                 <TextField
                   fullWidth
-                  label="Attribute key"
-                  value={attrKey}
-                  onChange={(event) => setAttrKey(event.target.value)}
+                  label="Tag or key"
+                  placeholder="e.g. nature or camera"
+                  value={tagDraft}
+                  onChange={(event) => setTagDraft(event.target.value)}
+                  onKeyDown={handleTagKeyDown}
+                  inputRef={tagInputRef}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <Tooltip title={tagGuidance}>
+                          <IconButton
+                            size="small"
+                            edge="end"
+                            aria-label="Tag entry tips"
+                            tabIndex={-1}
+                            disableRipple
+                            disableFocusRipple
+                          >
+                            <InfoOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </InputAdornment>
+                    ),
+                  }}
                 />
                 <TextField
                   fullWidth
-                  label="Value"
+                  label="Value (optional)"
+                  placeholder="e.g. nikon"
                   value={attrValue}
                   onChange={(event) => setAttrValue(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault()
+                      handleCommitTagOrAttribute()
+                    }
+                  }}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <Tooltip title={valueGuidance}>
+                          <IconButton
+                            size="small"
+                            edge="end"
+                            aria-label="Value usage tips"
+                            tabIndex={-1}
+                            disableRipple
+                            disableFocusRipple
+                          >
+                            <InfoOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </InputAdornment>
+                    ),
+                  }}
                 />
-                <Button variant="outlined" onClick={handleAddAttribute} sx={{ whiteSpace: 'nowrap' }}>
-                  Add
-                </Button>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Tooltip title={attrValue.trim() ? 'Add key:value filter' : 'Add tag'}>
+                    <span>
+                      <IconButton
+                        color="primary"
+                        onClick={handleCommitTagOrAttribute}
+                        disabled={!tagDraft.trim()}
+                        sx={{ alignSelf: 'center' }}
+                      >
+                        <AddRoundedIcon />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                </Box>
               </Stack>
-            </Stack>
-
-            {attributeChips.length > 0 && (
-              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                {attributeChips.flatMap(([key, values]) =>
-                  values.map((value) => (
+              {hasAnyFilterChips && (
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  {confirmedTags.map((tag) => (
                     <Chip
-                      key={`${key}-${value}`}
-                      label={`${key}:${value}`}
-                      color="primary"
+                      key={tag}
+                      label={tag}
+                      color="secondary"
                       variant="outlined"
-                      onDelete={() => handleRemoveAttribute(key, value)}
+                      onDelete={() => handleRemoveTag(tag)}
                       sx={{ mb: 1 }}
                     />
-                  )),
-                )}
-              </Stack>
-            )}
-
-            <Stack direction="row" justifyContent="flex-end">
-              <Button
-                variant="contained"
-                color="primary"
-                endIcon={<RefreshRoundedIcon />}
-                onClick={handleSearch}
-                disabled={isRefreshing}
-              >
-                {isRefreshing ? 'Refreshing…' : 'Apply filters'}
-              </Button>
+                  ))}
+                  {attributeChips.flatMap(([key, values]) =>
+                    values.map((value) => (
+                      <Chip
+                        key={`${key}-${value}`}
+                        label={`${key}:${value}`}
+                        color="primary"
+                        variant="outlined"
+                        onDelete={() => handleRemoveAttribute(key, value)}
+                        sx={{ mb: 1 }}
+                      />
+                    )),
+                  )}
+                </Stack>
+              )}
             </Stack>
+
           </Stack>
         </CardContent>
       </Card>
@@ -235,12 +393,13 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
           ) : (
             <>
               <Grid container spacing={2}>
-                {flattenedItems.map((media) => (
+                {flattenedItems.map((media, index) => (
                   <Grid item xs={12} sm={6} md={4} lg={3} key={media.id}>
                     <MediaCard
                       media={media}
                       apiBaseUrl={apiBaseUrl}
-                      onPreview={() => setPreviewMedia(media)}
+                      onPreview={() => openPreviewAt(index)}
+                      onTagSelect={handleAppendTagFromCard}
                     />
                   </Grid>
                 ))}
@@ -293,7 +452,9 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
         <MediaPreviewOverlay
           media={previewMedia}
           apiBaseUrl={apiBaseUrl}
-          onClose={() => setPreviewMedia(null)}
+          onClose={closePreview}
+          onNavigate={handleNavigatePreview}
+          onTagSelect={handleAppendTagFromCard}
         />
       )}
     </Stack>
@@ -304,11 +465,11 @@ type MediaCardProps = {
   media: MediaSummary
   apiBaseUrl: string
   onPreview: () => void
+  onTagSelect: (tag: MediaTag) => void
 }
 
-function MediaCard({ media, apiBaseUrl, onPreview }: MediaCardProps) {
+function MediaCard({ media, apiBaseUrl, onPreview, onTagSelect }: MediaCardProps) {
   const thumbnailSrc = resolveThumbnailUrl(media.thumbnailPath, apiBaseUrl)
-  const tagNames = media.tags.map((tag) => tag.normalized)
   const inlineStreamUrl = resolveStreamUrl(apiBaseUrl, media.id)
   const downloadUrl = resolveStreamUrl(apiBaseUrl, media.id, 'attachment')
 
@@ -349,31 +510,40 @@ function MediaCard({ media, apiBaseUrl, onPreview }: MediaCardProps) {
             {media.filesize.toLocaleString()} bytes
           </Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            {tagNames.map((tag) => (
-              <Chip key={tag} label={tag} size="small" sx={{ mb: 0.5 }} />
+            {media.tags.map((tag) => (
+              <Chip
+                key={tag.rawToken}
+                label={tag.value ? `${tag.name}:${tag.value}` : tag.name}
+                size="small"
+                onClick={() => onTagSelect(tag)}
+                sx={{ mb: 0.5, cursor: 'pointer' }}
+              />
             ))}
           </Stack>
         </Stack>
       </CardContent>
       <CardActions sx={{ justifyContent: 'flex-end', pt: 0 }}>
-        <Button size="small" onClick={onPreview}>
-          Preview
-        </Button>
-        <Button
-          size="small"
-          onClick={openNewTab}
-        >
-          Open in new tab
-        </Button>
-        <Button
-          size="small"
-          component="a"
-          href={downloadUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Download
-        </Button>
+        <Tooltip title="Preview">
+          <IconButton aria-label="Preview" onClick={onPreview}>
+            <VisibilityRoundedIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Open in new tab">
+          <IconButton aria-label="Open in new tab" onClick={openNewTab}>
+            <OpenInNewRoundedIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Download">
+          <IconButton
+            aria-label="Download"
+            component="a"
+            href={downloadUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <DownloadRoundedIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
       </CardActions>
     </Card>
   )
@@ -383,20 +553,33 @@ type MediaPreviewOverlayProps = {
   media: MediaSummary | null
   apiBaseUrl: string
   onClose: () => void
+  onNavigate: (direction: 'next' | 'previous') => void
+  onTagSelect: (tag: MediaTag) => void
 }
 
-function MediaPreviewOverlay({ media, apiBaseUrl, onClose }: MediaPreviewOverlayProps) {
+function MediaPreviewOverlay({ media, apiBaseUrl, onClose, onNavigate, onTagSelect }: MediaPreviewOverlayProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const swipeStartX = useRef<number | null>(null)
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         onClose()
+        return
+      }
+      if (event.key === 'ArrowRight') {
+        event.preventDefault()
+        onNavigate('next')
+        return
+      }
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault()
+        onNavigate('previous')
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
+  }, [onClose, onNavigate])
 
   if (!media || typeof document === 'undefined') {
     return null
@@ -421,6 +604,30 @@ function MediaPreviewOverlay({ media, apiBaseUrl, onClose }: MediaPreviewOverlay
     }
   }
 
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    swipeStartX.current = event.clientX
+  }
+
+  const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (swipeStartX.current === null) {
+      return
+    }
+    const deltaX = event.clientX - swipeStartX.current
+    const threshold = 40
+    if (Math.abs(deltaX) > threshold) {
+      if (deltaX > 0) {
+        onNavigate('previous')
+      } else {
+        onNavigate('next')
+      }
+    }
+    swipeStartX.current = null
+  }
+
+  const handlePointerLeave = () => {
+    swipeStartX.current = null
+  }
+
   return (
     <Portal>
       <Box
@@ -435,6 +642,10 @@ function MediaPreviewOverlay({ media, apiBaseUrl, onClose }: MediaPreviewOverlay
           zIndex: (theme) => theme.zIndex.modal,
           transition: 'opacity 120ms ease',
         }}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerLeave}
+        onPointerCancel={handlePointerLeave}
       >
         <Card
           ref={containerRef}
@@ -461,6 +672,18 @@ function MediaPreviewOverlay({ media, apiBaseUrl, onClose }: MediaPreviewOverlay
             </IconButton>
           </Stack>
 
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            {media.tags.map((tag) => (
+              <Chip
+                key={`${media.id}-${tag.rawToken}`}
+                label={tag.value ? `${tag.name}:${tag.value}` : tag.name}
+                size="small"
+                onClick={() => onTagSelect(tag)}
+                sx={{ cursor: 'pointer' }}
+              />
+            ))}
+          </Stack>
+
           <Box
             sx={{
               flexGrow: 1,
@@ -476,22 +699,34 @@ function MediaPreviewOverlay({ media, apiBaseUrl, onClose }: MediaPreviewOverlay
             {renderPreviewMedia(media, inlineStreamUrl)}
           </Box>
 
-          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="flex-end" spacing={1.5}>
-            <Button onClick={handleFullscreen} variant="outlined">
-              Fullscreen
-            </Button>
-            <Button component="a" href={inlineStreamUrl} target="_blank" rel="noopener noreferrer">
-              Open in new tab
-            </Button>
-            <Button
-              component="a"
-              href={downloadUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              variant="contained"
-            >
-              Download
-            </Button>
+          <Stack direction="row" spacing={1} justifyContent="flex-end">
+            <Tooltip title="Fullscreen">
+              <IconButton aria-label="Fullscreen" onClick={handleFullscreen}>
+                <FullscreenRoundedIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Open in new tab">
+              <IconButton
+                aria-label="Open in new tab"
+                component="a"
+                href={inlineStreamUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <OpenInNewRoundedIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Download">
+              <IconButton
+                aria-label="Download"
+                component="a"
+                href={downloadUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <DownloadRoundedIcon />
+              </IconButton>
+            </Tooltip>
           </Stack>
         </Card>
       </Box>
@@ -555,14 +790,15 @@ function resolveErrorMessage(error: unknown) {
   return 'Unable to load media results'
 }
 
-function parseTagInput(input: string): string[] {
-  return input
-    .split(',')
-    .map((token) => token.trim().toLowerCase())
-    .filter((token) => token.length > 0)
-}
-
 function cloneAttributes(source: AttributeMap): AttributeMap {
   const entries = Object.entries(source).map(([key, values]) => [key, [...values]] as const)
   return Object.fromEntries(entries)
+}
+
+function cloneTags(source: string[]): string[] {
+  return [...source]
+}
+
+function normalizeTag(value: string): string {
+  return value.trim().toLowerCase()
 }

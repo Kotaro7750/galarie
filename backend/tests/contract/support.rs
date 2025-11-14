@@ -376,7 +376,7 @@ impl StubMedia {
             "mediaType": self.media_type,
             "tags": self.tags.iter().map(|tag| json!({
                 "rawToken": tag,
-                "type": if tag.contains('-') { "kv" } else { "simple" },
+                "type": if tag.contains('-') { "keyvalue" } else { "simple" },
                 "name": tag.split_once('-').map(|(name, _)| name).unwrap_or(tag),
                 "value": tag.split_once('-').map(|(_, value)| value),
                 "normalized": tag.to_ascii_lowercase().replace('-', "="),

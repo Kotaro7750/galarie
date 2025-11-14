@@ -166,10 +166,10 @@ Check search endpoint (フィルタなしで初回ページを取得し、スク
 # フィルタなし → page/pageSize どおり全件を順次取得できる
 curl "http://localhost:8080/api/v1/media?page=1&pageSize=60"
 
-# simple tag + KV キー名の存在チェックを加える
+# simple tag + key-value キー名の存在チェックを加える
 curl "http://localhost:8080/api/v1/media?tags=cat,camera"
 
-# KV 値を指定したフィルタのみ
+# key-value 値を指定したフィルタのみ
 curl "http://localhost:8080/api/v1/media?attributes[rating]=5,4"
 ```
 

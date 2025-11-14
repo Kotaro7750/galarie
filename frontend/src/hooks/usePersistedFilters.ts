@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 export type PersistedFilters = {
-  tags: string
+  tags: string[]
   attributes: Record<string, string[]>
 }
 
@@ -16,14 +16,14 @@ export function usePersistedFilters(defaultValue: PersistedFilters) {
       const raw = window.sessionStorage.getItem(STORAGE_KEY)
       if (!raw) return defaultValue
       const parsed = JSON.parse(raw) as PersistedFilters
-      if (!parsed.tags || typeof parsed.tags !== 'string') {
+      if (!parsed.tags || !Array.isArray(parsed.tags)) {
         return defaultValue
       }
       if (!parsed.attributes || typeof parsed.attributes !== 'object') {
         return defaultValue
       }
       return {
-        tags: parsed.tags,
+        tags: parsed.tags.filter((tag): tag is string => typeof tag === 'string'),
         attributes: parsed.attributes,
       }
     } catch {
@@ -36,7 +36,7 @@ export function usePersistedFilters(defaultValue: PersistedFilters) {
     window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(filters))
   }, [filters])
 
-  const updateTags = useCallback((nextTags: string) => {
+  const updateTags = useCallback((nextTags: string[]) => {
     setFilters((prev) => ({ ...prev, tags: nextTags }))
   }, [])
 

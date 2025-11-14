@@ -1,6 +1,6 @@
 export type MediaTag = {
   rawToken: string
-  type: 'simple' | 'kv'
+  type: 'simple' | 'keyvalue'
   name: string
   value?: string | null
   normalized: string
