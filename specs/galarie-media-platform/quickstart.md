@@ -160,10 +160,13 @@ Trigger cache rebuild:
 curl -X POST http://localhost:8080/api/v1/index/rebuild -d '{"force":true}' -H 'Content-Type: application/json'
 ```
 
-Check search endpoint (タグ名 or 属性のみでも呼び出し可能):
+Check search endpoint (フィルタなしで初回ページを取得し、スクロールで次ページを読み込む想定):
 
 ```bash
-# simple tag + KV キー名の存在チェック
+# フィルタなし → page/pageSize どおり全件を順次取得できる
+curl "http://localhost:8080/api/v1/media?page=1&pageSize=60"
+
+# simple tag + KV キー名の存在チェックを加える
 curl "http://localhost:8080/api/v1/media?tags=cat,camera"
 
 # KV 値を指定したフィルタのみ

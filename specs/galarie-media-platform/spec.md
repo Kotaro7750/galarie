@@ -25,8 +25,9 @@
 1. **Given** キャッシュが最新の状態, **When** ユーザーが複数タグ条件を入力, **Then** 1 秒以内にマッチしたファイルのサムネイルがグリッド表示され種類が区別できる。
 2. **Given** key:value タグが付与されたファイル, **When** ユーザーがキーと値を複数指定, **Then** 完全一致したファイルのみが検索結果に含まれる。
 3. **Given** key:value タグのキーだけを指定した検索条件, **When** ユーザーがそのキー名をタグ条件として入力, **Then** 値に関係なく該当キーを持つファイルすべてが一致する。
-4. **Given** ブラウザセッション中, **When** ユーザーが検索条件を変更, **Then** 変更内容が即座に反映され検索状態はセッション終了まで保持される。
-5. **Given** サムネイルグリッドに動画/画像が表示されている, **When** ユーザーが任意のメディアを開く, **Then** フロントエンドは `GET /api/v1/media/{id}/stream` を呼び出し 200/206 応答で実ファイルを取得できる（Range 対応, `disposition=inline` 既定）。
+4. **Given** ユーザーがクエリ未指定のまま検索ページを開く, **When** API を呼び出す, **Then** page/pageSize で定義された件数だけが返り UI は無限スクロールで後続ページを順次取得できる。
+5. **Given** ブラウザセッション中, **When** ユーザーが検索条件を変更, **Then** 変更内容が即座に反映され検索状態はセッション終了まで保持される。
+6. **Given** サムネイルグリッドに動画/画像が表示されている, **When** ユーザーが任意のメディアを開く, **Then** フロントエンドは `GET /api/v1/media/{id}/stream` を呼び出し 200/206 応答で実ファイルを取得できる（Range 対応, `disposition=inline` 既定）。
 
 ---
 
@@ -78,7 +79,7 @@
 ### Functional Requirements
 
 - **FR-001**: System MUST parse tag metadata from filenames (`tag`, `key:value`) and cache the results for ≤1s query latency.
-- **FR-002**: System MUST expose a RESTful `GET /api/v1/media` endpoint that executes AND-based tag-name existence queries (simple tagsおよび KV タグのキー名が対象) and supports multi-value filters for specific key/value tags when the caller supplies attribute conditions.
+- **FR-002**: System MUST expose a RESTful `GET /api/v1/media` endpoint that executes AND-based tag-name existence queries (simple tagsおよび KV タグのキー名が対象) and supports multi-value filters for specific key/value tags when the caller supplies attribute conditions; when no filters are provided the endpoint MUST return paginated results for the full catalog.
 - **FR-003**: Users MUST be able to view search results as thumbnails with media-type indicators provided through the search response.
 - **FR-004**: Frontend MUST maintain favorites and slideshow queues client-side (e.g., browser storage) so that state persists until the tab closes without backend storage.
 - **FR-005**: System MUST provide a slideshow player for images/GIFs with configurable interval, fixed order, and infinite loop (client-controlled).
@@ -96,8 +97,8 @@
 ## Contract Surfaces *(mandatory when exposing an interface)*
 
 - **Interface Name**: `GET /api/v1/media`
-  - **Purpose**: Search media with AND-based tag filters.
-  - **Request Schema**: Query parameters `tags=tag1,tag2` (タグ名ベースの存在チェック、simple/KVいずれも対象。`tags` と `attributes` の少なくとも一方が指定される必要がある)、`attributes[key]=value1,value2` (値一致フィルタ。キーごとに AND、値は OR)、`page`, `pageSize`.
+  - **Purpose**: Search media with AND-based tag filters or browse the catalog with infinite scroll.
+  - **Request Schema**: Query parameters `tags=tag1,tag2` (タグ名ベースの存在チェック、simple/KVいずれも対象。省略した場合はフィルタなしで全件がページング返却される)、`attributes[key]=value1,value2` (値一致フィルタ。キーごとに AND、値は OR)、`page`, `pageSize` (page は 1 起点、pageSize は 1〜200)。UI は連番ページを順次取得して無限スクロールを実現する。
   - **Response Schema**: `{ items: MediaFile[], total: number, page: number, pageSize: number }` with REST error envelope `{ error: { code, message } }`.
   - **Versioning**: URI namespace `/api/v1`; breaking changes require `/api/v2`.
   - **Quickstart Step**: Quickstart “Search via REST API”.
