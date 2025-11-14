@@ -80,10 +80,6 @@ async fn media_search(query: Result<Query<SearchQuery>, QueryRejection>) -> Resp
     };
 
     let tags = query.required_tags();
-    if tags.is_empty() {
-        return validation_failed("tags query parameter is required");
-    }
-
     let page = query.page.unwrap_or(1);
     if page == 0 {
         return validation_failed("page must be greater than or equal to 1");
@@ -337,11 +333,15 @@ impl SearchQuery {
 impl StubMedia {
     fn matches(&self, tags: &[String], attributes: &HashMap<String, Vec<String>>) -> bool {
         for tag in tags {
-            if !self
+            let has_simple_tag = self
                 .tags
                 .iter()
-                .any(|candidate| candidate.eq_ignore_ascii_case(tag))
-            {
+                .any(|candidate| candidate.eq_ignore_ascii_case(tag));
+            let has_attribute_key = self
+                .attributes
+                .iter()
+                .any(|(key, _)| key.eq_ignore_ascii_case(tag));
+            if !(has_simple_tag || has_attribute_key) {
                 return false;
             }
         }

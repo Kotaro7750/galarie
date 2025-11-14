@@ -193,16 +193,24 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn rejects_missing_tags() {
-        let state = app_state_with_media(Vec::new());
+    async fn allows_browsing_without_filters() {
+        let media = vec![
+            sample_media("sunset_A", vec![simple_tag("sunset"), kv_tag("rating", "5")]),
+            sample_media("macro_B", vec![simple_tag("macro"), kv_tag("rating", "4")]),
+        ];
+        let state = app_state_with_media(media);
         let router = crate::routes::router(state);
         let request = Request::builder()
             .method(Method::GET)
-            .uri("/api/v1/media?page=1")
+            .uri("/api/v1/media?page=1&pageSize=2")
             .body(Body::empty())
             .unwrap();
         let response = router.oneshot(request).await.unwrap();
-        assert_eq!(response.status(), axum::http::StatusCode::BAD_REQUEST);
+        assert_eq!(response.status(), axum::http::StatusCode::OK);
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let payload: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(payload["total"], 2);
+        assert_eq!(payload["items"].as_array().unwrap().len(), 2);
     }
 
     #[tokio::test]
@@ -227,5 +235,26 @@ mod tests {
         let payload: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(payload["total"], 1);
         assert_eq!(payload["items"][0]["id"], "sunset_A");
+    }
+
+    #[tokio::test]
+    async fn matches_kv_tag_names_with_tags_query() {
+        let media = vec![
+            sample_media("camera_A", vec![kv_tag("camera", "alpha")]),
+            sample_media("other_B", vec![simple_tag("other")]),
+        ];
+        let state = app_state_with_media(media);
+        let router = crate::routes::router(state);
+        let request = Request::builder()
+            .method(Method::GET)
+            .uri("/api/v1/media?tags=camera")
+            .body(Body::empty())
+            .unwrap();
+        let response = router.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), axum::http::StatusCode::OK);
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let payload: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(payload["total"], 1);
+        assert_eq!(payload["items"][0]["id"], "camera_A");
     }
 }
