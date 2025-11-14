@@ -319,11 +319,7 @@ type MediaPreviewOverlayProps = {
   onClose: () => void
 }
 
-function MediaPreviewOverlay({
-  media,
-  apiBaseUrl,
-  onClose,
-}: MediaPreviewOverlayProps) {
+function MediaPreviewOverlay({ media, apiBaseUrl, onClose }: MediaPreviewOverlayProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -353,9 +349,16 @@ function MediaPreviewOverlay({
     }
   }
 
+  const handleBackdropClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (event.target === event.currentTarget) {
+      onClose()
+    }
+  }
+
   return (
     <Portal>
       <Box
+        onClick={handleBackdropClick}
         sx={{
           position: 'fixed',
           inset: 0,
