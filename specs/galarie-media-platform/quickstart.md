@@ -67,6 +67,15 @@ The backend already points to the collector via `OTEL_EXPORTER_OTLP_ENDPOINT=htt
 
 ## 6. Backend Setup (Rust example)
 
+Inside the devcontainer, long-running dev servers now run under `supervisord`. Use the Make targets below from a devcontainer shell to start/stop the backend without launching extra terminals:
+
+```bash
+make backend/dev      # start the backend under supervisor
+make backend/stop-dev # stop the supervised backend
+```
+
+You can still run the binary directly (useful outside the devcontainer or for ad-hoc debugging):
+
 ```bash
 cd backend
 cargo install just # optional task runner
@@ -80,6 +89,8 @@ cargo run -- \
 Or simply invoke the shared Makefile targets from the repo root:
 
 ```bash
+make backend/dev
+make backend/stop-dev
 make backend/test
 make backend/lint
 ```
@@ -105,6 +116,13 @@ The API serves:
 
 ## 7. Frontend Setup
 
+Within the devcontainer, the Vite dev server is also controlled by `supervisord` via Make targets:
+
+```bash
+make frontend/dev      # start Vite (runs detached inside the container)
+make frontend/stop-dev # stop the supervised Vite server
+```
+
 ```bash
 cd frontend
 npm install
@@ -119,6 +137,7 @@ Makefile wrappers from the repo root:
 ```bash
 make frontend/install
 make frontend/dev
+make frontend/stop-dev
 make frontend/test
 ```
 

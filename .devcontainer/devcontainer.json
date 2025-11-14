@@ -4,8 +4,8 @@
     "docker-compose.yml"
   ],
   "service": "devcontainer",
-  "workspaceFolder": "/workspaces/galarie",
-  "remoteUser": "vscode",
+  "workspaceFolder": "/workspace",
+  "remoteUser": "galarie",
   "forwardPorts": [8080, 5173, 4317, 3300, 9090, 3100, 3200],
   "postCreateCommand": "cargo --version && rustc --version && node --version && npm --version",
   "customizations": {

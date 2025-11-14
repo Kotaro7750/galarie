@@ -2,17 +2,17 @@ services:
   devcontainer:
     build:
       context: ..
-      dockerfile: .devcontainer/Dockerfile
+      dockerfile: Dockerfile
       args:
         NODE_MAJOR: "24"
         NODE_FALLBACK: "22"
-    command: /bin/sh -c "while sleep 1000; do :; done"
     volumes:
-      - ..:/workspaces/galarie
-      - ../media:/workspace/media:cached
+      - ..:/workspace
+      - ../media:/galarie-content/media:cached
+      - ./supervisord.conf:/etc/supervisor/conf.d/supervisord.conf:ro
     environment:
-      GALARIE_MEDIA_ROOT: /workspace/media
-      GALARIE_CACHE_DIR: /workspace/.cache
+      GALARIE_MEDIA_ROOT: /galarie-content/media
+      GALARIE_CACHE_DIR: /galarie-content/cache
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
     ports:
       - "8080:8080"
