@@ -25,14 +25,14 @@ paths:
           name: tags
           schema:
             type: string
-            description: Comma-separated simple tags
-          description: Required tags (AND semantics)
+            description: Comma-separated tag names (simple tags or KV tag keys)
+          description: Tag-name existence filters (AND semantics). Provide when you need to ensure specific simple tags or KVキー名が存在します。`tags` と `attributes[*]` のいずれか一方は必ず指定してください。
         - in: query
           name: attributes[{key}]
           schema:
             type: string
             description: Comma-separated values for a key
-          description: Key/value attribute filters (AND across keys, OR within values)
+          description: Key/value attribute filters (AND across keys, OR within values). 値で絞り込みたい場合に指定し、`tags` と `attributes[*]` のいずれか一方は必ず指定してください。
         - in: query
           name: page
           schema:

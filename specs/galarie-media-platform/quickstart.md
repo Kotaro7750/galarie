@@ -160,10 +160,14 @@ Trigger cache rebuild:
 curl -X POST http://localhost:8080/api/v1/index/rebuild -d '{"force":true}' -H 'Content-Type: application/json'
 ```
 
-Check search endpoint:
+Check search endpoint (タグ名 or 属性のみでも呼び出し可能):
 
 ```bash
-curl "http://localhost:8080/api/v1/media?tags=cat,sunset&attributes[rating]=5"
+# simple tag + KV キー名の存在チェック
+curl "http://localhost:8080/api/v1/media?tags=cat,camera"
+
+# KV 値を指定したフィルタのみ
+curl "http://localhost:8080/api/v1/media?attributes[rating]=5,4"
 ```
 
 ## 10. UI Workflow Test
