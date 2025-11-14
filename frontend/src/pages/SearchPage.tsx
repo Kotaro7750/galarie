@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Alert,
   Box,
@@ -46,8 +46,7 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
   const attributes = filters.attributes
   const [formError, setFormError] = useState<string | null>(null)
   const [toastOpen, setToastOpen] = useState(false)
-  const [hoveredMedia, setHoveredMedia] = useState<MediaSummary | null>(null)
-  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [previewMedia, setPreviewMedia] = useState<MediaSummary | null>(null)
 
   const searchMutation = useMutation({
     mutationFn: (payload: MediaSearchRequest) => fetchMedia(payload, apiBaseUrl),
@@ -93,29 +92,6 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
   const attributeChips = useMemo(() => Object.entries(attributes), [attributes])
   const fetchedItems = searchMutation.data?.items ?? []
   const totalResults = searchMutation.data?.total ?? 0
-
-  const clearHover = useCallback(() => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current)
-    }
-    hoverTimeoutRef.current = setTimeout(() => setHoveredMedia(null), 120)
-  }, [])
-
-  const applyHover = useCallback((media: MediaSummary | null) => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current)
-      hoverTimeoutRef.current = null
-    }
-    setHoveredMedia(media)
-  }, [])
-
-  useEffect(() => {
-    return () => {
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current)
-      }
-    }
-  }, [])
 
   useEffect(() => {
     if (searchMutation.isError) {
@@ -213,8 +189,7 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
                   <MediaCard
                     media={media}
                     apiBaseUrl={apiBaseUrl}
-                    onHoverStart={() => applyHover(media)}
-                    onHoverEnd={clearHover}
+                    onPreview={() => setPreviewMedia(media)}
                   />
                 </Grid>
               ))}
@@ -248,13 +223,11 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
           {resolveErrorMessage(searchMutation.error)}
         </Alert>
       </Snackbar>
-      {hoveredMedia && (
+      {previewMedia && (
         <MediaPreviewOverlay
-          media={hoveredMedia}
+          media={previewMedia}
           apiBaseUrl={apiBaseUrl}
-          onHoverStart={() => applyHover(hoveredMedia)}
-          onHoverEnd={clearHover}
-          onClose={() => setHoveredMedia(null)}
+          onClose={() => setPreviewMedia(null)}
         />
       )}
     </Stack>
@@ -264,17 +237,16 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
 type MediaCardProps = {
   media: MediaSummary
   apiBaseUrl: string
-  onHoverStart: () => void
-  onHoverEnd: () => void
+  onPreview: () => void
 }
 
-function MediaCard({ media, apiBaseUrl, onHoverStart, onHoverEnd }: MediaCardProps) {
+function MediaCard({ media, apiBaseUrl, onPreview }: MediaCardProps) {
   const thumbnailSrc = resolveThumbnailUrl(media.thumbnailPath, apiBaseUrl)
   const tagNames = media.tags.map((tag) => tag.normalized)
   const inlineStreamUrl = resolveStreamUrl(apiBaseUrl, media.id)
-const downloadUrl = resolveStreamUrl(apiBaseUrl, media.id, 'attachment')
+  const downloadUrl = resolveStreamUrl(apiBaseUrl, media.id, 'attachment')
 
-  const openInlinePreview = () => {
+  const openNewTab = () => {
     if (typeof window === 'undefined') return
     window.open(inlineStreamUrl, '_blank', 'noopener,noreferrer')
   }
@@ -283,15 +255,13 @@ const downloadUrl = resolveStreamUrl(apiBaseUrl, media.id, 'attachment')
     <Card
       variant="outlined"
       sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}
-      onMouseEnter={onHoverStart}
-      onMouseLeave={onHoverEnd}
     >
       <CardMedia
         component="img"
         height={180}
         image={thumbnailSrc}
         alt={media.relativePath}
-        onClick={openInlinePreview}
+        onClick={onPreview}
         sx={{ cursor: 'pointer' }}
         onError={(event) => {
           ;(event.target as HTMLImageElement).src = 'https://placehold.co/320x200?text=Media'
@@ -320,8 +290,14 @@ const downloadUrl = resolveStreamUrl(apiBaseUrl, media.id, 'attachment')
         </Stack>
       </CardContent>
       <CardActions sx={{ justifyContent: 'flex-end', pt: 0 }}>
-        <Button size="small" onClick={openInlinePreview}>
-          Open
+        <Button size="small" onClick={onPreview}>
+          Preview
+        </Button>
+        <Button
+          size="small"
+          onClick={openNewTab}
+        >
+          Open in new tab
         </Button>
         <Button
           size="small"
@@ -340,16 +316,12 @@ const downloadUrl = resolveStreamUrl(apiBaseUrl, media.id, 'attachment')
 type MediaPreviewOverlayProps = {
   media: MediaSummary | null
   apiBaseUrl: string
-  onHoverStart: () => void
-  onHoverEnd: () => void
   onClose: () => void
 }
 
 function MediaPreviewOverlay({
   media,
   apiBaseUrl,
-  onHoverStart,
-  onHoverEnd,
   onClose,
 }: MediaPreviewOverlayProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -374,8 +346,6 @@ function MediaPreviewOverlay({
   return (
     <Portal>
       <Box
-        onMouseEnter={onHoverStart}
-        onMouseLeave={onHoverEnd}
         sx={{
           position: 'fixed',
           inset: 0,
@@ -432,7 +402,7 @@ function MediaPreviewOverlay({
               Fullscreen
             </Button>
             <Button component="a" href={inlineStreamUrl} target="_blank" rel="noopener noreferrer">
-              Open
+              Open in new tab
             </Button>
             <Button
               component="a"
