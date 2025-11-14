@@ -22,7 +22,7 @@ use tokio::{
     io::{AsyncReadExt, AsyncSeekExt},
 };
 use tokio_util::io::ReaderStream;
-use tracing::{info, instrument};
+use tracing::instrument;
 
 use crate::{
     api::{ApiError, ErrorCode},
@@ -36,7 +36,15 @@ pub struct StreamParams {
     pub disposition: Option<String>,
 }
 
-#[instrument(skip(state, headers), fields(media.id = %media_id))]
+#[instrument(
+    skip(params, state, headers),
+    fields(
+        galarie.stream.media_id = %media_id,
+        galarie.stream.bytes,
+        galarie.stream.range,
+        galarie.stream.content_type
+    )
+)]
 pub async fn media_stream(
     PathParam(media_id): PathParam<String>,
     Query(params): Query<StreamParams>,
@@ -110,7 +118,7 @@ pub async fn media_stream(
         .status(status)
         .header(ACCEPT_RANGES, "bytes")
         .header(CONTENT_DISPOSITION, content_disposition)
-        .header(CONTENT_TYPE, content_type)
+        .header(CONTENT_TYPE, content_type.as_str())
         .header(CONTENT_LENGTH, body_length.to_string())
         .header(ETAG, etag);
 
@@ -122,12 +130,10 @@ pub async fn media_stream(
         }
     };
 
-    info!(
-        media.id = %media.id,
-        http.response.status_code = %status,
-        stream.bytes = body_length,
-        stream.range = range_desc.as_str(),
-    );
+    let span = tracing::Span::current();
+    span.record("galarie.stream.bytes", body_length as i64);
+    span.record("galarie.stream.range", range_desc.as_str());
+    span.record("galarie.stream.content_type", content_type.as_str());
 
     response
         .body(body_stream)

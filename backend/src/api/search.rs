@@ -46,7 +46,7 @@ pub async fn media_search(
         params.page_size.unwrap_or(60),
     );
     let snapshot = state.snapshot.read().await;
-    let result = SearchService::execute(&snapshot, &query);
+    let result = SearchService::search(&snapshot, &query);
 
     Ok(Json(MediaSearchResponse::from(result)))
 }

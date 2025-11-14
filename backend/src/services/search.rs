@@ -1,5 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
+use tracing::instrument;
+
 use crate::{cache::CacheSnapshot, indexer::MediaFile, tags::TagKind};
 
 const DEFAULT_PAGE_SIZE: usize = 60;
@@ -84,7 +86,18 @@ pub struct SearchResult {
 pub struct SearchService;
 
 impl SearchService {
-    pub fn execute(snapshot: &CacheSnapshot, query: &SearchQuery) -> SearchResult {
+    #[instrument(
+        skip(snapshot, query),
+        fields(
+            galarie.search.tags_count = query.required_tags().len(),
+            galarie.search.attributes_count = query.attribute_filters().len(),
+            galarie.search.page = query.page(),
+            galarie.search.page_size = query.page_size(),
+            galarie.search.result_count,
+            galarie.search.total_matches
+        )
+    )]
+    pub fn search(snapshot: &CacheSnapshot, query: &SearchQuery) -> SearchResult {
         let start_index = (query.page().saturating_sub(1)) * query.page_size();
         let mut collected = Vec::with_capacity(query.page_size());
         let mut matched_total = 0usize;
@@ -103,12 +116,18 @@ impl SearchService {
             matched_total += 1;
         }
 
-        SearchResult {
+        let result = SearchResult {
             items: collected,
             total: matched_total,
             page: query.page(),
             page_size: query.page_size(),
-        }
+        };
+
+        let span = tracing::Span::current();
+        span.record("galarie.search.result_count", result.items.len() as u64);
+        span.record("galarie.search.total_matches", result.total as u64);
+
+        result
     }
 }
 
@@ -116,11 +135,7 @@ fn matches_required_tags(media: &MediaFile, required_tags: &[String]) -> bool {
     if required_tags.is_empty() {
         return true;
     }
-    let tag_set: HashSet<&str> = media
-        .tags
-        .iter()
-        .map(|tag| tag.name.as_str())
-        .collect();
+    let tag_set: HashSet<&str> = media.tags.iter().map(|tag| tag.name.as_str()).collect();
     required_tags
         .iter()
         .all(|tag| tag_set.contains(tag.as_str()))
@@ -194,7 +209,7 @@ mod tests {
         let mut attributes = HashMap::new();
         attributes.insert("rating".into(), vec!["5".into()]);
         let query = SearchQuery::new(vec!["sunset".into(), "coast".into()], attributes, 1, 10);
-        let result = SearchService::execute(&snapshot, &query);
+        let result = SearchService::search(&snapshot, &query);
         assert_eq!(result.total, 1);
         assert_eq!(result.items[0].id, "sunset_A");
     }
@@ -205,7 +220,7 @@ mod tests {
         let mut attributes = HashMap::new();
         attributes.insert("rating".into(), vec!["4".into(), "3".into()]);
         let query = SearchQuery::new(Vec::new(), attributes, 1, 10);
-        let result = SearchService::execute(&snapshot, &query);
+        let result = SearchService::search(&snapshot, &query);
         assert_eq!(result.total, 3);
         let ids: HashSet<_> = result.items.iter().map(|m| m.id.as_str()).collect();
         assert!(ids.contains("macro_B"));
@@ -217,7 +232,7 @@ mod tests {
     fn paginates_matches() {
         let snapshot = fixture_snapshot();
         let query = SearchQuery::new(vec!["sunset".into()], HashMap::new(), 2, 1);
-        let result = SearchService::execute(&snapshot, &query);
+        let result = SearchService::search(&snapshot, &query);
         assert_eq!(result.total, 2);
         assert_eq!(result.items.len(), 1);
         assert_eq!(result.items[0].id, "sunset_B");
