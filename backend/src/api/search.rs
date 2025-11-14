@@ -38,10 +38,6 @@ pub async fn media_search(
 ) -> ApiResult<MediaSearchResponse> {
     let tags = parse_tags(params.tags.as_deref()).map_err(|msg| ApiError::bad_request(msg))?;
 
-    if tags.is_empty() {
-        return Err(ApiError::bad_request("tags query parameter is required"));
-    }
-
     let attributes = parse_attributes(&params.rest);
     let query = SearchQuery::new(
         tags,
@@ -68,7 +64,7 @@ impl From<SearchResult> for MediaSearchResponse {
 
 fn parse_tags(raw: Option<&str>) -> Result<Vec<String>, &'static str> {
     let Some(raw) = raw else {
-        return Err("tags query parameter is required");
+        return Ok(Vec::new());
     };
 
     let tags: Vec<String> = raw
@@ -78,7 +74,7 @@ fn parse_tags(raw: Option<&str>) -> Result<Vec<String>, &'static str> {
         .collect();
 
     if tags.is_empty() {
-        Err("tags query parameter is required")
+        Err("tags query parameter must contain at least one value")
     } else {
         Ok(tags)
     }

@@ -119,7 +119,7 @@ fn matches_required_tags(media: &MediaFile, required_tags: &[String]) -> bool {
     let tag_set: HashSet<&str> = media
         .tags
         .iter()
-        .map(|tag| tag.normalized.as_str())
+        .map(|tag| tag.name.as_str())
         .collect();
     required_tags
         .iter()
