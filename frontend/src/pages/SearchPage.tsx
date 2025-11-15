@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react'
 import {
   Alert,
   Box,
@@ -10,7 +17,6 @@ import {
   Chip,
   CircularProgress,
   Divider,
-  Grid,
   IconButton,
   InputAdornment,
   Portal,
@@ -94,7 +100,7 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
   const flattenedItems = data?.pages.flatMap((page) => page.items) ?? []
   const itemsCount = flattenedItems.length
   const totalResults = data?.pages[0]?.total ?? 0
-  const isInitialLoading = status === 'loading' && !data
+  const isInitialLoading = status === 'pending' && !data
   const isRefreshing = isFetching && !isFetchingNextPage
   const previewMedia = typeof previewIndex === 'number' ? flattenedItems[previewIndex] ?? null : null
 
@@ -220,7 +226,7 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
     [attributes, confirmedTags, persistAttributes, persistTags],
   )
 
-  const handleTagKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+  const handleTagKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter' || event.key === ',') {
       event.preventDefault()
       handleCommitTagOrAttribute()
@@ -392,18 +398,29 @@ export function SearchPage({ apiBaseUrl }: SearchPageProps) {
             <Alert severity="info">No media matched. Add filters or try browsing without tags.</Alert>
           ) : (
             <>
-              <Grid container spacing={2}>
+              <Box
+                sx={{
+                  display: 'grid',
+                  gap: 2,
+                  gridTemplateColumns: {
+                    xs: 'repeat(1, minmax(0, 1fr))',
+                    sm: 'repeat(2, minmax(0, 1fr))',
+                    md: 'repeat(3, minmax(0, 1fr))',
+                    lg: 'repeat(4, minmax(0, 1fr))',
+                  },
+                }}
+              >
                 {flattenedItems.map((media, index) => (
-                  <Grid item xs={12} sm={6} md={4} lg={3} key={media.id}>
+                  <Box key={media.id}>
                     <MediaCard
                       media={media}
                       apiBaseUrl={apiBaseUrl}
                       onPreview={() => openPreviewAt(index)}
                       onTagSelect={handleAppendTagFromCard}
                     />
-                  </Grid>
+                  </Box>
                 ))}
-              </Grid>
+              </Box>
               <Box ref={loadMoreRef} sx={{ height: 8 }} />
               {isFetchingNextPage && (
                 <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" mt={3}>
@@ -562,7 +579,7 @@ function MediaPreviewOverlay({ media, apiBaseUrl, onClose, onNavigate, onTagSele
   const swipeStartX = useRef<number | null>(null)
 
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
+    const handleKeyDown = (event: WindowEventMap['keydown']) => {
       if (event.key === 'Escape') {
         onClose()
         return
@@ -590,11 +607,12 @@ function MediaPreviewOverlay({ media, apiBaseUrl, onClose, onNavigate, onTagSele
 
   const handleFullscreen = () => {
     const node = containerRef.current
-    if (node && 'requestFullscreen' in node) {
-      // @ts-expect-error: requestFullscreen exists in modern browsers
-      node.requestFullscreen?.().catch(() => {
-        /* ignore */
-      })
+    if (node?.requestFullscreen) {
+      node
+        .requestFullscreen()
+        .catch(() => {
+          /* ignore */
+        })
     }
   }
 
@@ -791,7 +809,7 @@ function resolveErrorMessage(error: unknown) {
 }
 
 function cloneAttributes(source: AttributeMap): AttributeMap {
-  const entries = Object.entries(source).map(([key, values]) => [key, [...values]] as const)
+  const entries = Object.entries(source).map(([key, values]) => [key, [...values]])
   return Object.fromEntries(entries)
 }
 

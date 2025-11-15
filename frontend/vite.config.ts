@@ -1,8 +1,11 @@
 import react from '@vitejs/plugin-react'
 import { configDefaults, defineConfig } from 'vitest/config'
 
-// https://vite.dev/config/
+const ensureTrailingSlash = (value: string) => (value.endsWith('/') ? value : `${value}/`)
+const base = ensureTrailingSlash(process.env.VITE_BASE_PATH ?? '/')
+
 export default defineConfig({
+  base,
   plugins: [react()],
   test: {
     globals: true,

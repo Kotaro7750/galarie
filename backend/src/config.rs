@@ -47,6 +47,10 @@ struct CliConfig {
     /// Comma-separated list of allowed CORS origins
     #[arg(long, env = "GALARIE_CORS_ALLOWED_ORIGINS", value_delimiter = ',')]
     cors_allowed_origins: Vec<String>,
+
+    /// Directory containing the built frontend assets
+    #[arg(long, env = "GALARIE_FRONTEND_DIST_DIR")]
+    frontend_dist_dir: Option<PathBuf>,
 }
 
 /// Fully validated configuration shared across the application.
@@ -59,6 +63,7 @@ pub struct AppConfig {
     pub log: LogConfig,
     pub environment: String,
     pub cors_allowed_origins: Vec<String>,
+    pub frontend_dist_dir: Option<PathBuf>,
 }
 
 /// OpenTelemetry exporter configuration.
@@ -96,6 +101,12 @@ impl TryFrom<CliConfig> for AppConfig {
         ensure_binary_exists("gifsicle")
             .context("required dependency 'gifsicle' was not found in PATH")?;
 
+        let frontend_dist_dir = value.frontend_dist_dir.clone();
+        if let Some(dir) = &frontend_dist_dir {
+            ensure_directory_exists(dir)
+                .with_context(|| format!("frontend dist directory '{}' missing", dir.display()))?;
+        }
+
         Ok(Self {
             media_root: value.media_root,
             cache_dir: value.cache_dir,
@@ -113,6 +124,7 @@ impl TryFrom<CliConfig> for AppConfig {
                 .into_iter()
                 .filter(|origin| !origin.is_empty())
                 .collect(),
+            frontend_dist_dir,
         })
     }
 }
@@ -128,7 +140,7 @@ fn ensure_directory_exists(path: &Path) -> Result<()> {
 }
 
 fn ensure_binary_exists(binary: &str) -> Result<()> {
-    which::which(binary).map(|_| ()).with_context(|| {
-        format!("binary '{}' is required but was not found in PATH", binary)
-    })
+    which::which(binary)
+        .map(|_| ())
+        .with_context(|| format!("binary '{}' is required but was not found in PATH", binary))
 }

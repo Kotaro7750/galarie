@@ -1,9 +1,11 @@
 # syntax=docker/dockerfile:1
+ARG APP_USER=galarie
 
 ########################################
 # Base builder image
 ########################################
 FROM rust:1.90-bullseye AS backend-builder
+ARG APP_USER
 WORKDIR /tmp/build-backend
 
 # Cache dependencies
@@ -14,13 +16,26 @@ RUN mkdir src && echo "fn main() {}" > src/main.rs && \
 
 # Build application
 COPY backend/src ./src
-RUN cargo build --release
-ARG APP_USER=galarie
+RUN ["cargo", "build", "--release"]
+
+########################################
+# Frontend builder image for frontend
+########################################
+FROM node:24-alpine AS frontend-builder
+WORKDIR /tmp/build-frontend
+
+COPY frontend/package.json frontend/package-lock.json ./
+RUN ["npm", "ci"]
+
+COPY frontend/ ./
+ENV VITE_BASE_PATH=/ui
+RUN ["npm", "run", "build"]
 
 ########################################
 # Production runtime image
 ########################################
 FROM debian:bookworm-slim AS prod-runtime
+ARG APP_USER
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates ffmpeg gifsicle \
@@ -36,17 +51,23 @@ ENV GALARIE_MEDIA_ROOT=/data/media \
 WORKDIR /app
 RUN mkdir -p "$GALARIE_MEDIA_ROOT" "$GALARIE_CACHE_DIR" && chown -R "$APP_USER:$APP_USER" /data
 
+COPY ./startup.sh /app/startup.sh
+RUN ["chmod", "+x", "/app/startup.sh"]
 COPY --from=backend-builder /tmp/build-backend/target/release/galarie-backend galarie-backend
+COPY --from=frontend-builder /tmp/build-frontend/dist /app/frontend
+
+RUN chown -R $APP_USER:$APP_USER /app
 
 USER $APP_USER
 EXPOSE 8080
-ENTRYPOINT ["/app/galarie-backend"]
+ENTRYPOINT ["/app/startup.sh"]
 CMD []
 
 ########################################
 # Devcontainer image (extends prod runtime)
 ########################################
 FROM backend-builder AS devcontainer
+ARG APP_USER
 
 RUN rm -rf /tmp/build-backend
 

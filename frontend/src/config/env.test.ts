@@ -23,12 +23,21 @@ describe('normalizeApiBaseUrl', () => {
 })
 
 describe('getAppEnvironment', () => {
-  it('reads from import.meta.env', () => {
-    const original = import.meta.env.VITE_API_BASE_URL
-    // @ts-expect-error - we intentionally mutate for the test
-    import.meta.env.VITE_API_BASE_URL = 'https://demo/api/'
-    expect(getAppEnvironment().apiBaseUrl).toBe('https://demo/api')
-    // @ts-expect-error - restore value for subsequent tests
-    import.meta.env.VITE_API_BASE_URL = original
+  it('prefers runtime config when provided', () => {
+    expect(
+      getAppEnvironment({
+        runtimeConfig: { apiBaseUrl: 'https://runtime/api/' },
+        buildEnv: { VITE_API_BASE_URL: 'https://build/api/' },
+      }).apiBaseUrl,
+    ).toBe('https://runtime/api')
+  })
+
+  it('falls back to build-time env when runtime config missing', () => {
+    expect(
+      getAppEnvironment({
+        runtimeConfig: undefined,
+        buildEnv: { VITE_API_BASE_URL: 'https://build/api/' },
+      }).apiBaseUrl,
+    ).toBe('https://build/api')
   })
 })

@@ -180,6 +180,7 @@ mod tests {
                 level: "info".into(),
             },
             cors_allowed_origins: Vec::new(),
+            frontend_dist_dir: None,
         });
         let cache_store = Arc::new(crate::cache::CacheStore::new(&cache_dir));
         let snapshot = CacheSnapshot::new(vec![media]);

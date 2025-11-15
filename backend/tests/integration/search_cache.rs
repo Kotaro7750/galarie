@@ -45,7 +45,7 @@ async fn cache_miss_rebuilds_and_search_responds_under_one_second() {
 
     let snapshot_state = Arc::new(RwLock::new(snapshot));
     let state = AppState::new(config.clone(), cache_store.clone(), snapshot_state);
-    let mut app = routes::router(state);
+    let app = routes::router(state);
 
     let request = Request::builder()
         .method(Method::GET)
@@ -86,5 +86,6 @@ fn test_config(media_root: PathBuf, cache_dir: PathBuf) -> AppConfig {
             level: "info".into(),
         },
         cors_allowed_origins: Vec::new(),
+        frontend_dist_dir: None,
     }
 }

@@ -154,5 +154,6 @@ fn test_config(media_root: PathBuf, cache_dir: PathBuf) -> AppConfig {
             level: "info".into(),
         },
         cors_allowed_origins: Vec::new(),
+        frontend_dist_dir: None,
     }
 }

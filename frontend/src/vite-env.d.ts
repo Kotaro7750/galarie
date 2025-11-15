@@ -7,3 +7,15 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+interface GalarieRuntimeConfig {
+  apiBaseUrl?: string
+}
+
+declare global {
+  interface Window {
+    __GALARIE_RUNTIME_CONFIG__?: GalarieRuntimeConfig
+  }
+}
+
+export {}

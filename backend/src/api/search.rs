@@ -135,6 +135,7 @@ mod tests {
                 level: "info".into(),
             },
             cors_allowed_origins: Vec::new(),
+            frontend_dist_dir: None,
         });
         let cache_store = Arc::new(crate::cache::CacheStore::new(tmp.path()));
         let snapshot = CacheSnapshot::new(media);
@@ -191,7 +192,10 @@ mod tests {
     #[tokio::test]
     async fn allows_browsing_without_filters() {
         let media = vec![
-            sample_media("sunset_A", vec![simple_tag("sunset"), kv_tag("rating", "5")]),
+            sample_media(
+                "sunset_A",
+                vec![simple_tag("sunset"), kv_tag("rating", "5")],
+            ),
             sample_media("macro_B", vec![simple_tag("macro"), kv_tag("rating", "4")]),
         ];
         let state = app_state_with_media(media);

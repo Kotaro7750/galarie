@@ -1,20 +1,28 @@
 use std::{
+    convert::Infallible,
+    future::Future,
+    pin::Pin,
     sync::Arc,
+    task::{Context, Poll},
     time::{Duration, Instant},
 };
 
 use anyhow::Error;
 use axum::{
     Json, Router,
+    body::Body,
     extract::{MatchedPath, State},
-    http::{HeaderValue, StatusCode},
+    http::{HeaderValue, Request, StatusCode},
     middleware,
+    response::IntoResponse,
     routing::{get, post},
 };
 use serde::Serialize;
 use tokio::{sync::RwLock, task};
+use tower::ServiceExt;
 use tower_http::{
     cors::{AllowOrigin, Any, CorsLayer},
+    services::{ServeDir, ServeFile},
     trace::{MakeSpan, OnRequest, OnResponse, TraceLayer},
 };
 use tracing::{Instrument, Span, field, instrument};
@@ -54,16 +62,11 @@ impl AppState {
 pub fn router(state: AppState) -> Router {
     let cors = build_cors_layer(&state.config.cors_allowed_origins);
 
-    Router::new()
-        .route("/healthz", get(healthz))
-        .route("/api/v1/media", get(search::media_search))
-        .route(
-            "/api/v1/media/{id}/thumbnail",
-            get(thumbnails::media_thumbnail),
-        )
-        .route("/api/v1/media/{id}/stream", get(stream::media_stream))
-        .route("/api/v1/index/rebuild", post(trigger_rebuild))
-        .with_state(state)
+    let api_routes = Router::new()
+        .route("/media", get(search::media_search))
+        .route("/media/{id}/thumbnail", get(thumbnails::media_thumbnail))
+        .route("/media/{id}/stream", get(stream::media_stream))
+        .route("/index/rebuild", post(trigger_rebuild))
         .layer(cors)
         .fallback(api::fallback_handler)
         .layer(middleware::from_fn(api::ensure_error_envelope))
@@ -72,7 +75,21 @@ pub fn router(state: AppState) -> Router {
                 .make_span_with(HttpMakeSpan)
                 .on_request(LogOnRequest)
                 .on_response(LogOnResponse),
-        )
+        );
+
+    let router = Router::new()
+        .route("/healthz", get(healthz))
+        .nest("/api/v1", api_routes)
+        .with_state(state.clone());
+
+    if let Some(frontend_dist_dir) = &state.config.frontend_dist_dir {
+        let frontend_service = ServeDir::new(frontend_dist_dir)
+            .fallback(ServeFile::new(frontend_dist_dir.join("index.html")));
+
+        router.nest_service("/ui", frontend_service)
+    } else {
+        router
+    }
 }
 
 fn build_cors_layer(origins: &[String]) -> CorsLayer {
@@ -261,6 +278,7 @@ mod tests {
                 level: "info".into(),
             },
             cors_allowed_origins: Vec::new(),
+            frontend_dist_dir: None,
         }
     }
 
@@ -341,7 +359,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method(Method::GET)
-                    .uri("/missing")
+                    .uri("/api/v1/missing")
                     .body(Body::empty())
                     .unwrap(),
             )

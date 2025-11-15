@@ -13,13 +13,16 @@ use tokio::sync::RwLock;
 #[tokio::main]
 async fn main() -> Result<()> {
     let config = Arc::new(AppConfig::load()?);
+    let _telemetry = o11y::TelemetryGuard::init(&config)?;
+
+    tracing::info!("starting Galarie backend with config {:?}", config);
+
     let cache_store = Arc::new(CacheStore::new(config.cache_dir.clone()));
     let media_root_for_cache = config.media_root.clone();
     let initial_snapshot =
         cache_store.load_or_rebuild(|| Indexer::scan_once(&media_root_for_cache))?;
     let snapshot_state = Arc::new(RwLock::new(initial_snapshot));
 
-    let _telemetry = o11y::TelemetryGuard::init(&config)?;
     let state = AppState::new(config.clone(), cache_store.clone(), snapshot_state.clone());
     let (indexer_handle, mut index_events) =
         Indexer::spawn(IndexerConfig::new(config.media_root.clone()));
