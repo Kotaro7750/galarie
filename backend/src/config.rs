@@ -91,6 +91,10 @@ impl TryFrom<CliConfig> for AppConfig {
         fs::create_dir_all(&value.cache_dir).with_context(|| {
             format!("failed to create cache dir '{}'", value.cache_dir.display())
         })?;
+        ensure_binary_exists("ffmpeg")
+            .context("required dependency 'ffmpeg' was not found in PATH")?;
+        ensure_binary_exists("gifsicle")
+            .context("required dependency 'gifsicle' was not found in PATH")?;
 
         Ok(Self {
             media_root: value.media_root,
@@ -121,4 +125,10 @@ fn ensure_directory_exists(path: &Path) -> Result<()> {
         "path '{}' does not exist or is not accessible",
         path.display()
     ))
+}
+
+fn ensure_binary_exists(binary: &str) -> Result<()> {
+    which::which(binary).map(|_| ()).with_context(|| {
+        format!("binary '{}' is required but was not found in PATH", binary)
+    })
 }
