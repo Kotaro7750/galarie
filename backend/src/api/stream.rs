@@ -37,9 +37,9 @@ pub struct StreamParams {
 }
 
 #[instrument(
-    skip(params, state, headers),
+    skip(media_id, params, state, headers),
     fields(
-        galarie.stream.media_id = %media_id,
+        galarie.media.id = %media_id,
         galarie.stream.bytes,
         galarie.stream.range,
         galarie.stream.content_type

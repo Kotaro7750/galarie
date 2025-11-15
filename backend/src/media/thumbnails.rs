@@ -7,6 +7,7 @@ use anyhow::{Context, Result};
 use image::{DynamicImage, ImageFormat, ImageReader, imageops::FilterType};
 use serde::{Deserialize, Serialize};
 use tokio::{process::Command, task, time::timeout};
+use tracing::instrument;
 
 use crate::indexer::MediaType;
 
@@ -101,13 +102,31 @@ impl ThumbnailGenerator {
     }
 
     /// Ensure a thumbnail exists on disk, generating it if missing. Returns the artifact metadata.
+    #[instrument(skip(self, spec, size), err(Debug), fields(
+            galarie.media.id = %spec.media_id,
+            galarie.media.type = ?spec.media_type,
+            galarie.thumbnail.size = ?size,
+            galarie.thumbnail.path,
+            galarie.thumbnail.cached,
+    ))]
     pub async fn ensure_thumbnail(
         &self,
         spec: &ThumbnailSpec,
         size: ThumbnailSize,
     ) -> Result<ThumbnailArtifact> {
         let (target_path, relative_path) = self.thumbnail_paths(&spec.media_id, size);
-        if tokio::fs::try_exists(&target_path).await? {
+        tracing::Span::current()
+            .record("galarie.thumbnail.path", &target_path.display().to_string());
+        // Specifying default value in instrument macro and updating results in duplicate fields.
+        tracing::Span::current().record("galarie.thumbnail.cached", false);
+
+        if tokio::fs::try_exists(&target_path).await.with_context(|| {
+            format!(
+                "Failed to check existance of {} for thumbnail",
+                target_path.display()
+            )
+        })? {
+            tracing::Span::current().record("galarie.thumbnail.cached", true);
             return Ok(ThumbnailArtifact {
                 relative_path,
                 media_type: "image/jpeg",
@@ -117,7 +136,9 @@ impl ThumbnailGenerator {
         }
 
         if let Some(parent) = target_path.parent() {
-            tokio::fs::create_dir_all(parent).await?;
+            tokio::fs::create_dir_all(parent)
+                .await
+                .context("failed to create parent directory")?;
         }
 
         match spec.media_type {
@@ -155,6 +176,7 @@ impl ThumbnailGenerator {
         (self.cache_dir.join(&relative), relative)
     }
 
+    #[instrument(skip(self, source, target, size), err(Debug))]
     async fn generate_static_thumbnail(
         &self,
         source: &Path,
@@ -177,6 +199,9 @@ impl ThumbnailGenerator {
         Ok(())
     }
 
+    #[instrument(skip(self, source, target, size), err(Debug), fields(
+            galarie.thumbnail.generate_command,
+    ))]
     async fn generate_gif_thumbnail(
         &self,
         source: &Path,
@@ -185,19 +210,25 @@ impl ThumbnailGenerator {
     ) -> Result<()> {
         let (width, height) = size.as_dimensions();
         let output_tmp = target.with_extension("gif.tmp");
-        let status = timeout(
-            self.timeout,
-            Command::new(&self.gifsicle_path)
-                .arg("--resize-fit")
-                .arg(format!("{width}x{height}"))
-                .arg("--no-warnings")
-                .arg(source)
-                .arg("--output")
-                .arg(&output_tmp)
-                .status(),
-        )
-        .await
-        .context("gifsicle timed out")??;
+
+        let mut command = Command::new(&self.gifsicle_path);
+        command
+            .arg("--resize-fit")
+            .arg(format!("{width}x{height}"))
+            .arg("--no-warnings")
+            .arg(source)
+            .arg("--output")
+            .arg(&output_tmp);
+
+        tracing::Span::current().record(
+            "galarie.thumbnail.generate_command",
+            &format!("{:?}", command),
+        );
+
+        let status = timeout(self.timeout, command.status())
+            .await
+            .context("gifsicle timed out")?
+            .context("gifsicle failed to start. command may not exists")?;
         if !status.success() {
             anyhow::bail!("gifsicle failed to process {:?}", source);
         }
@@ -208,6 +239,9 @@ impl ThumbnailGenerator {
         Ok(())
     }
 
+    #[instrument(skip(self, source, target, size), err(Debug), fields(
+            galarie.thumbnail.generate_command,
+    ))]
     async fn generate_video_thumbnail(
         &self,
         source: &Path,
@@ -219,24 +253,30 @@ impl ThumbnailGenerator {
             "scale=w={width}:h={height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2"
         );
         let tmp_path = target.with_extension("tmp.jpg");
-        let status = timeout(
-            self.timeout,
-            Command::new(&self.ffmpeg_path)
-                .arg("-hide_banner")
-                .arg("-loglevel")
-                .arg("error")
-                .arg("-y")
-                .arg("-i")
-                .arg(source)
-                .arg("-frames:v")
-                .arg("1")
-                .arg("-vf")
-                .arg(&scale_filter)
-                .arg(&tmp_path)
-                .status(),
-        )
-        .await
-        .context("ffmpeg timed out")??;
+
+        let mut command = Command::new(&self.ffmpeg_path);
+        command
+            .arg("-hide_banner")
+            .arg("-loglevel")
+            .arg("error")
+            .arg("-y")
+            .arg("-i")
+            .arg(source)
+            .arg("-frames:v")
+            .arg("1")
+            .arg("-vf")
+            .arg(&scale_filter)
+            .arg(&tmp_path);
+
+        tracing::Span::current().record(
+            "galarie.thumbnail.generate_command",
+            &format!("{:?}", command),
+        );
+
+        let status = timeout(self.timeout, command.status())
+            .await
+            .context("ffmpeg timed out")?
+            .context("ffmpeg failed to start. command may not exists")?;
 
         if !status.success() {
             anyhow::bail!("ffmpeg failed to generate poster frame for {:?}", source);
