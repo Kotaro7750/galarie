@@ -175,6 +175,8 @@ mod tests {
             otel: OtelConfig {
                 endpoint: None,
                 service_name: "test".into(),
+                disable_traces: true,
+                disable_logs: true,
             },
             log: LogConfig {
                 level: "info".into(),

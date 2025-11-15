@@ -26,22 +26,24 @@ impl TelemetryGuard {
 
         match build_otel_pipelines(config)? {
             Some(pipelines) => {
-                tracing_subscriber::registry()
-                    .with(pipelines.trace_layer)
-                    .with(pipelines.log_layer)
-                    .with(env_filter)
-                    .with(
-                        tracing_subscriber::fmt::layer()
-                            .with_target(false)
-                            .with_file(false)
-                            .with_line_number(false)
-                            .json(),
-                    )
-                    .try_init()?;
-                info!("OpenTelemetry tracing/log export enabled (json stdout retained)");
+                let traces_active = pipelines.trace_layer.is_some();
+                let logs_active = pipelines.log_layer.is_some();
+                let OtelPipelines {
+                    trace_layer,
+                    tracer_provider,
+                    log_layer,
+                    logger_provider,
+                } = pipelines;
+
+                init_with_layers(env_filter, trace_layer, log_layer)?;
+                info!(
+                    tracing_enabled = traces_active,
+                    logging_enabled = logs_active,
+                    "OpenTelemetry export enabled (json stdout retained)"
+                );
                 Ok(Self {
-                    tracer_provider: Some(pipelines.tracer_provider),
-                    logger_provider: Some(pipelines.logger_provider),
+                    tracer_provider,
+                    logger_provider,
                 })
             }
             None => {
@@ -80,10 +82,10 @@ impl Drop for TelemetryGuard {
 }
 
 struct OtelPipelines {
-    trace_layer: OpenTelemetryLayer<Registry, sdk::trace::Tracer>,
-    tracer_provider: sdk::trace::SdkTracerProvider,
-    log_layer: OpenTelemetryTracingBridge<SdkLoggerProvider, SdkLogger>,
-    logger_provider: SdkLoggerProvider,
+    trace_layer: Option<OpenTelemetryLayer<Registry, sdk::trace::Tracer>>,
+    tracer_provider: Option<sdk::trace::SdkTracerProvider>,
+    log_layer: Option<OpenTelemetryTracingBridge<SdkLoggerProvider, SdkLogger>>,
+    logger_provider: Option<SdkLoggerProvider>,
 }
 
 fn build_otel_pipelines(config: &AppConfig) -> Result<Option<OtelPipelines>> {
@@ -100,34 +102,95 @@ fn build_otel_pipelines(config: &AppConfig) -> Result<Option<OtelPipelines>> {
         ))
         .build();
 
-    let span_exporter = SpanExporter::builder()
-        .with_tonic()
-        .with_endpoint(endpoint.clone())
-        .build()?;
+    let mut trace_layer = None;
+    let mut tracer_provider = None;
 
-    let provider = sdk::trace::SdkTracerProvider::builder()
-        .with_resource(resource.clone())
-        .with_batch_exporter(span_exporter)
-        .build();
+    if !config.otel.disable_traces {
+        let span_exporter = SpanExporter::builder()
+            .with_tonic()
+            .with_endpoint(endpoint.clone())
+            .build()?;
 
-    let tracer = provider.tracer(config.otel.service_name.clone());
-    global::set_tracer_provider(provider.clone());
+        let provider = sdk::trace::SdkTracerProvider::builder()
+            .with_resource(resource.clone())
+            .with_batch_exporter(span_exporter)
+            .build();
 
-    let log_exporter = LogExporter::builder()
-        .with_tonic()
-        .with_endpoint(endpoint)
-        .build()?;
+        let tracer = provider.tracer(config.otel.service_name.clone());
+        global::set_tracer_provider(provider.clone());
+        trace_layer = Some(tracing_opentelemetry::layer().with_tracer(tracer));
+        tracer_provider = Some(provider);
+    }
 
-    let logger_provider = SdkLoggerProvider::builder()
-        .with_resource(resource)
-        .with_batch_exporter(log_exporter)
-        .build();
-    let log_layer = OpenTelemetryTracingBridge::new(&logger_provider);
+    let mut log_layer = None;
+    let mut logger_provider = None;
+
+    if !config.otel.disable_logs {
+        let log_exporter = LogExporter::builder()
+            .with_tonic()
+            .with_endpoint(endpoint)
+            .build()?;
+
+        let provider = SdkLoggerProvider::builder()
+            .with_resource(resource)
+            .with_batch_exporter(log_exporter)
+            .build();
+        log_layer = Some(OpenTelemetryTracingBridge::new(&provider));
+        logger_provider = Some(provider);
+    }
+
+    if trace_layer.is_none() && log_layer.is_none() {
+        return Ok(None);
+    }
 
     Ok(Some(OtelPipelines {
-        trace_layer: tracing_opentelemetry::layer().with_tracer(tracer),
-        tracer_provider: provider,
+        trace_layer,
+        tracer_provider,
         log_layer,
         logger_provider,
     }))
+}
+
+fn init_with_layers(
+    env_filter: EnvFilter,
+    trace_layer: Option<OpenTelemetryLayer<Registry, sdk::trace::Tracer>>,
+    log_layer: Option<OpenTelemetryTracingBridge<SdkLoggerProvider, SdkLogger>>,
+) -> Result<(), tracing_subscriber::util::TryInitError> {
+    match (trace_layer, log_layer) {
+        (Some(trace_layer), Some(log_layer)) => tracing_subscriber::registry()
+            .with(trace_layer)
+            .with(log_layer)
+            .with(env_filter)
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .with_target(false)
+                    .with_file(false)
+                    .with_line_number(false)
+                    .json(),
+            )
+            .try_init(),
+        (Some(trace_layer), None) => tracing_subscriber::registry()
+            .with(trace_layer)
+            .with(env_filter)
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .with_target(false)
+                    .with_file(false)
+                    .with_line_number(false)
+                    .json(),
+            )
+            .try_init(),
+        (None, Some(log_layer)) => tracing_subscriber::registry()
+            .with(log_layer)
+            .with(env_filter)
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .with_target(false)
+                    .with_file(false)
+                    .with_line_number(false)
+                    .json(),
+            )
+            .try_init(),
+        (None, None) => unreachable!("at least one OTEL pipeline must be enabled"),
+    }
 }

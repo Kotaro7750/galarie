@@ -36,6 +36,14 @@ struct CliConfig {
     #[arg(long, env = "OTEL_SERVICE_NAME", default_value = "galarie-backend")]
     otel_service_name: String,
 
+    /// Disable OTLP trace export even if an endpoint is set
+    #[arg(long, env = "GALARIE_OTEL_DISABLE_TRACES", default_value_t = false)]
+    otel_disable_traces: bool,
+
+    /// Disable OTLP log export even if an endpoint is set
+    #[arg(long, env = "GALARIE_OTEL_DISABLE_LOGS", default_value_t = false)]
+    otel_disable_logs: bool,
+
     /// Deployment environment tag for telemetry (e.g., development, staging, prod)
     #[arg(long, env = "GALARIE_ENV", default_value = "development")]
     environment: String,
@@ -71,6 +79,8 @@ pub struct AppConfig {
 pub struct OtelConfig {
     pub endpoint: Option<String>,
     pub service_name: String,
+    pub disable_traces: bool,
+    pub disable_logs: bool,
 }
 
 /// Structured logging configuration.
@@ -115,6 +125,8 @@ impl TryFrom<CliConfig> for AppConfig {
             otel: OtelConfig {
                 endpoint: value.otel_endpoint,
                 service_name: value.otel_service_name,
+                disable_traces: value.otel_disable_traces,
+                disable_logs: value.otel_disable_logs,
             },
             log: LogConfig {
                 level: value.log_level,

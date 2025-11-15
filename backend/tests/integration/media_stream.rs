@@ -149,6 +149,8 @@ fn test_config(media_root: PathBuf, cache_dir: PathBuf) -> AppConfig {
         otel: OtelConfig {
             endpoint: None,
             service_name: "test-backend".into(),
+            disable_traces: true,
+            disable_logs: true,
         },
         log: LogConfig {
             level: "info".into(),

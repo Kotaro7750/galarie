@@ -1,25 +1,18 @@
 use std::{
-    convert::Infallible,
-    future::Future,
-    pin::Pin,
     sync::Arc,
-    task::{Context, Poll},
     time::{Duration, Instant},
 };
 
 use anyhow::Error;
 use axum::{
     Json, Router,
-    body::Body,
     extract::{MatchedPath, State},
-    http::{HeaderValue, Request, StatusCode},
+    http::{HeaderValue, StatusCode},
     middleware,
-    response::IntoResponse,
     routing::{get, post},
 };
 use serde::Serialize;
 use tokio::{sync::RwLock, task};
-use tower::ServiceExt;
 use tower_http::{
     cors::{AllowOrigin, Any, CorsLayer},
     services::{ServeDir, ServeFile},
@@ -273,6 +266,8 @@ mod tests {
             otel: OtelConfig {
                 endpoint: None,
                 service_name: "test-service".into(),
+                disable_traces: true,
+                disable_logs: true,
             },
             log: LogConfig {
                 level: "info".into(),
