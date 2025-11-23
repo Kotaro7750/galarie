@@ -7,9 +7,11 @@ use opentelemetry_sdk::{
     logs::{SdkLogger, SdkLoggerProvider},
     resource::Resource,
 };
-use tracing::{info, warn};
+use tracing::{info, level_filters::LevelFilter, warn};
 use tracing_opentelemetry::OpenTelemetryLayer;
-use tracing_subscriber::{EnvFilter, Registry, layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::{
+    EnvFilter, Layer, Registry, filter::Targets, layer::SubscriberExt, util::SubscriberInitExt,
+};
 
 use crate::config::AppConfig;
 
@@ -160,14 +162,18 @@ fn init_with_layers(
         (Some(trace_layer), Some(log_layer)) => tracing_subscriber::registry()
             .with(trace_layer)
             .with(log_layer)
-            .with(env_filter)
+            // For OTLP endpoint connection error, prepare stdout log
             .with(
                 tracing_subscriber::fmt::layer()
                     .with_target(false)
                     .with_file(false)
                     .with_line_number(false)
-                    .json(),
+                    .json()
+                    .with_filter(
+                        Targets::new().with_target("opentelemetry_sdk", LevelFilter::INFO),
+                    ),
             )
+            .with(env_filter)
             .try_init(),
         (Some(trace_layer), None) => tracing_subscriber::registry()
             .with(trace_layer)
@@ -183,13 +189,6 @@ fn init_with_layers(
         (None, Some(log_layer)) => tracing_subscriber::registry()
             .with(log_layer)
             .with(env_filter)
-            .with(
-                tracing_subscriber::fmt::layer()
-                    .with_target(false)
-                    .with_file(false)
-                    .with_line_number(false)
-                    .json(),
-            )
             .try_init(),
         (None, None) => unreachable!("at least one OTEL pipeline must be enabled"),
     }
