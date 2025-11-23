@@ -210,6 +210,13 @@ impl<B> OnRequest<B> for LogOnRequest {
     fn on_request(&mut self, request: &axum::http::Request<B>, span: &Span) {
         tracing::info!(
             parent: span,
+            http.request.method = %request.method(),
+            http.route = request
+                        .extensions()
+                        .get::<MatchedPath>()
+                        .map(|path| path.as_str())
+                        .unwrap_or_else(|| request.uri().path()),
+            url.path = %request.uri().path(),
             "HTTP request received: {} {}",
             request.method(),
             request.uri().path()
@@ -229,6 +236,8 @@ impl<B> OnResponse<B> for LogOnResponse {
 
         tracing::info!(
             parent: span,
+            http.latency_ms = %latency.as_millis(),
+            http.response.status_code = %status_code,
             "HTTP request completed with status {} in {} ms",
             status_code,
             latency.as_millis()
